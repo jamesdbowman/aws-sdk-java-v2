@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import software.amazon.awssdk.codegen.model.intermediate.MapModel;
 import software.amazon.awssdk.codegen.model.intermediate.MemberModel;
 import software.amazon.awssdk.codegen.poet.ClassSpec;
 import software.amazon.awssdk.codegen.poet.PoetExtensions;
-import software.amazon.awssdk.runtime.StandardMemberCopier;
+import software.amazon.awssdk.core.adapter.StandardMemberCopier;
 
 public class ServiceModelCopiers {
     private final IntermediateModel intermediateModel;
@@ -43,10 +43,23 @@ public class ServiceModelCopiers {
         Map<ClassName, ClassSpec> memberSpecs = new HashMap<>();
         allShapeMembers().values().stream()
                 .filter(m -> !(canCopyReference(m) || canUseStandardCopier(m)))
-                .map(m -> new MemberCopierSpec(m, this, typeProvider))
+                .map(m -> new MemberCopierSpec(m, this, typeProvider, poetExtensions))
                 .forEach(spec -> memberSpecs.put(spec.className(), spec));
 
         return memberSpecs.values();
+    }
+
+    public boolean requiresBuilderCopier(MemberModel memberModel) {
+        if (memberModel.isList()) {
+            MemberModel type = memberModel.getListModel().getListMemberModel();
+            return type != null && type.hasBuilder();
+        }
+
+        if (memberModel.isMap()) {
+            MemberModel valueType = memberModel.getMapModel().getValueModel();
+            return valueType != null && valueType.hasBuilder();
+        }
+        return false;
     }
 
     public Optional<ClassName> copierClassFor(MemberModel memberModel) {
@@ -58,7 +71,7 @@ public class ServiceModelCopiers {
             return Optional.of(ClassName.get(StandardMemberCopier.class));
         }
 
-        // FIXME: Ugly hack, but some services (Health) have shapes with names
+        // FIXME: Some services (Health) have shapes with names
         // that differ only in the casing of the first letter, and generating
         // classes for them breaks on case insensitive filesystems...
         String shapeName = memberModel.getC2jShape();
@@ -71,6 +84,18 @@ public class ServiceModelCopiers {
 
     public String copyMethodName() {
         return "copy";
+    }
+
+    public String enumToStringCopyMethodName() {
+        return "copyEnumToString";
+    }
+
+    public String stringToEnumCopyMethodName() {
+        return "copyStringToEnum";
+    }
+
+    public String builderCopyMethodName() {
+        return "copyFromBuilder";
     }
 
     private Map<String, MemberModel> allShapeMembers() {
@@ -96,7 +121,7 @@ public class ServiceModelCopiers {
         } else if (memberModel.isMap()) {
             MapModel mapModel = memberModel.getMapModel();
             // NOTE: keys are always simple, so don't bother checking
-            if (!mapModel.isValueSimple()) {
+            if (!mapModel.getValueModel().isSimple()) {
                 MemberModel valueMember = mapModel.getValueModel();
                 allMembers.put(valueMember.getC2jShape(), valueMember);
                 putMembersOfMember(valueMember, allMembers);
@@ -111,7 +136,7 @@ public class ServiceModelCopiers {
 
         String simpleType = m.getVariable().getSimpleType();
 
-        return "Date".equals(simpleType) || "ByteBuffer".equals(simpleType);
+        return "Date".equals(simpleType) || "SdkBytes".equals(simpleType);
     }
 
     private boolean canCopyReference(MemberModel m) {
@@ -123,7 +148,7 @@ public class ServiceModelCopiers {
             String simpleType = m.getVariable().getSimpleType();
             switch (simpleType) {
                 case "Date":
-                case "ByteBuffer":
+                case "SdkBytes":
                     return false;
                 default:
                     return true;

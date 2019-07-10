@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -38,17 +38,17 @@ public interface ClassSpec {
      * An optional hook to allow inclusion of static imports for example converting:
      *
      * <pre><code>
-     * import software.amazon.awssdk.util.StringUtils;
+     * import software.amazon.awssdk.utils.StringUtils;
      * //...
-     *   if(StringUtils.isNullOrEmpty(value))...
+     *   if(StringUtils.isBlank(value))...
      * </code></pre>
      *
      * to
      *
      * <pre><code>
-     * import software.amazon.awssdk.util.StringUtils.isNullOrEmpty;
+     * import software.amazon.awssdk.utils.StringUtils.isBlank;
      * //...
-     *   if(isNullOrEmpty(value))...
+     *   if(isBlank(value))...
      * </code></pre>
      *
      * @return the static imports to include

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,32 +17,21 @@ package software.amazon.awssdk.codegen.model.intermediate;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import software.amazon.awssdk.codegen.protocol.ApiGatewayProtocolMetadataProvider;
-import software.amazon.awssdk.codegen.protocol.AwsCborProtocolMetadataProvider;
-import software.amazon.awssdk.codegen.protocol.AwsJsonProtocolMetadataProvider;
-import software.amazon.awssdk.codegen.protocol.Ec2ProtocolMetdataProvider;
-import software.amazon.awssdk.codegen.protocol.IonProtocolMetadataProvider;
-import software.amazon.awssdk.codegen.protocol.ProtocolMetadataProvider;
-import software.amazon.awssdk.codegen.protocol.QueryProtocolMetadataProvider;
-import software.amazon.awssdk.codegen.protocol.RestJsonProtocolMetdataProvider;
-import software.amazon.awssdk.codegen.protocol.RestXmlProtocolMetadataProvider;
 
 public enum Protocol {
-    EC2("ec2", new Ec2ProtocolMetdataProvider()),
-    AWS_JSON("json", new AwsJsonProtocolMetadataProvider()),
-    REST_JSON("rest-json", new RestJsonProtocolMetdataProvider()),
-    CBOR("cbor", new AwsCborProtocolMetadataProvider()),
-    QUERY("query", new QueryProtocolMetadataProvider()),
-    REST_XML("rest-xml", new RestXmlProtocolMetadataProvider()),
-    API_GATEWAY("api-gateway", new ApiGatewayProtocolMetadataProvider()),
-    ION("ion", new IonProtocolMetadataProvider());
+    EC2("ec2"),
+    AWS_JSON("json"),
+    REST_JSON("rest-json"),
+    CBOR("cbor"),
+    QUERY("query"),
+    REST_XML("rest-xml"),
+    API_GATEWAY("api-gateway"),
+    ION("ion");
 
     private String protocol;
-    private ProtocolMetadataProvider metadataProvider;
 
-    Protocol(String protocol, ProtocolMetadataProvider metadataProvider) {
+    Protocol(String protocol) {
         this.protocol = protocol;
-        this.metadataProvider = metadataProvider;
     }
 
     @JsonCreator
@@ -63,9 +52,5 @@ public enum Protocol {
     @JsonValue
     public String getValue() {
         return protocol;
-    }
-
-    public ProtocolMetadataProvider getProvider() {
-        return metadataProvider;
     }
 }

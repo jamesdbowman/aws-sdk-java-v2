@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
 
 package software.amazon.awssdk.codegen;
 
-import software.amazon.awssdk.codegen.model.config.BasicCodeGenConfig;
 import software.amazon.awssdk.codegen.model.config.customization.CustomizationConfig;
 import software.amazon.awssdk.codegen.model.intermediate.ServiceExamples;
+import software.amazon.awssdk.codegen.model.service.Paginators;
 import software.amazon.awssdk.codegen.model.service.ServiceModel;
 import software.amazon.awssdk.codegen.model.service.Waiters;
+import software.amazon.awssdk.utils.builder.SdkBuilder;
 
 /**
  * Container for service models and config files.
@@ -29,16 +30,19 @@ public class C2jModels {
     private final ServiceModel serviceModel;
     private final Waiters waitersModel;
     private final ServiceExamples examplesModel;
-    private final BasicCodeGenConfig codeGenConfig;
     private final CustomizationConfig customizationConfig;
+    private final Paginators paginatorsModel;
 
-    private C2jModels(ServiceModel serviceModel, Waiters waitersModel, ServiceExamples examplesModel,
-                      BasicCodeGenConfig codeGenConfig, CustomizationConfig customizationConfig) {
+    private C2jModels(ServiceModel serviceModel,
+                      Waiters waitersModel,
+                      ServiceExamples examplesModel,
+                      CustomizationConfig customizationConfig,
+                      Paginators paginatorsModel) {
         this.serviceModel = serviceModel;
         this.waitersModel = waitersModel;
         this.examplesModel = examplesModel;
-        this.codeGenConfig = codeGenConfig;
         this.customizationConfig = customizationConfig;
+        this.paginatorsModel = paginatorsModel;
     }
 
     public static Builder builder() {
@@ -57,21 +61,21 @@ public class C2jModels {
         return examplesModel;
     }
 
-    public BasicCodeGenConfig codeGenConfig() {
-        return codeGenConfig;
-    }
-
     public CustomizationConfig customizationConfig() {
         return customizationConfig;
     }
 
-    public static class Builder {
+    public Paginators paginatorsModel() {
+        return paginatorsModel;
+    }
+
+    public static class Builder implements SdkBuilder<Builder, C2jModels> {
 
         private ServiceModel serviceModel;
         private Waiters waitersModel;
         private ServiceExamples examplesModel;
-        private BasicCodeGenConfig codeGenConfig;
         private CustomizationConfig customizationConfig;
+        private Paginators paginatorsModel;
 
         private Builder() {
         }
@@ -91,20 +95,21 @@ public class C2jModels {
             return this;
         }
 
-        public Builder codeGenConfig(BasicCodeGenConfig codeGenConfig) {
-            this.codeGenConfig = codeGenConfig;
-            return this;
-        }
-
         public Builder customizationConfig(CustomizationConfig customizationConfig) {
             this.customizationConfig = customizationConfig;
             return this;
         }
 
+        public Builder paginatorsModel(Paginators paginatorsModel) {
+            this.paginatorsModel = paginatorsModel;
+            return this;
+        }
+
         public C2jModels build() {
-            final Waiters waiters = waitersModel != null ? waitersModel : Waiters.NONE;
-            final ServiceExamples examples = examplesModel != null ? examplesModel : ServiceExamples.NONE;
-            return new C2jModels(serviceModel, waiters, examples, codeGenConfig, customizationConfig);
+            Waiters waiters = waitersModel != null ? waitersModel : Waiters.none();
+            Paginators paginators = paginatorsModel != null ? paginatorsModel : Paginators.none();
+            ServiceExamples examples = examplesModel != null ? examplesModel : ServiceExamples.none();
+            return new C2jModels(serviceModel, waiters, examples, customizationConfig, paginators);
         }
     }
 }

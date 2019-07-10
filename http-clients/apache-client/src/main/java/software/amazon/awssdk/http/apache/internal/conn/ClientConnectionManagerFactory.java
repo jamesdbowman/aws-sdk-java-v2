@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -24,9 +24,14 @@ import org.apache.http.conn.HttpClientConnectionManager;
 import org.apache.http.pool.ConnPoolControl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.annotations.SdkInternalApi;
 
-public class ClientConnectionManagerFactory {
+@SdkInternalApi
+public final class ClientConnectionManagerFactory {
     private static final Logger log = LoggerFactory.getLogger(ClientConnectionManagerFactory.class);
+
+    private ClientConnectionManagerFactory() {
+    }
 
     /**
      * Returns a wrapped instance of {@link HttpClientConnectionManager}
@@ -38,7 +43,7 @@ public class ClientConnectionManagerFactory {
         if (orig instanceof Wrapped) {
             throw new IllegalArgumentException();
         }
-        final Class<?>[] interfaces;
+        Class<?>[] interfaces;
         if (orig instanceof ConnPoolControl) {
             interfaces = new Class<?>[]{
                     HttpClientConnectionManager.class,

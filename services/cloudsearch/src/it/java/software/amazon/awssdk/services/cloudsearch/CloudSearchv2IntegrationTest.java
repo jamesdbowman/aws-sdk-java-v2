@@ -1,3 +1,18 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package software.amazon.awssdk.services.cloudsearch;
 
 import static org.junit.Assert.assertEquals;
@@ -12,7 +27,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import software.amazon.awssdk.auth.StaticCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.services.cloudsearch.model.AccessPoliciesStatus;
 import software.amazon.awssdk.services.cloudsearch.model.AnalysisScheme;
 import software.amazon.awssdk.services.cloudsearch.model.AnalysisSchemeLanguage;
@@ -57,7 +72,7 @@ import software.amazon.awssdk.services.cloudsearch.model.SuggesterStatus;
 import software.amazon.awssdk.services.cloudsearch.model.TextOptions;
 import software.amazon.awssdk.services.cloudsearch.model.UpdateScalingParametersRequest;
 import software.amazon.awssdk.services.cloudsearch.model.UpdateServiceAccessPoliciesRequest;
-import software.amazon.awssdk.test.AwsIntegrationTestBase;
+import software.amazon.awssdk.testutils.service.AwsIntegrationTestBase;
 
 public class CloudSearchv2IntegrationTest extends AwsIntegrationTestBase {
 
@@ -75,11 +90,18 @@ public class CloudSearchv2IntegrationTest extends AwsIntegrationTestBase {
     /** Name of the test analysis scheme being created in the domain. */
     private static final String testAnalysisSchemeName = "analysis"
                                                          + System.currentTimeMillis();
-    public static String POLICY = "{\"Statement\": " + "[ "
-                                  + "{\"Effect\":\"Allow\", " + "\"Action\":\"*\", "
-                                  + "\"Condition\": " + "{ " + "\"IpAddress\": "
-                                  + "{ \"aws:SourceIp\": [\"203.0.113.1/32\"]} "
-                                  + "} " + "}" + "] " + "}";
+
+    public static String POLICY = "{\n"
+                                   + "  \"Statement\":[\n"
+                                   + "    {\n"
+                                   + "      \"Effect\":\"Allow\",\n"
+                                   + "      \"Principal\":\"*\",\n"
+                                   + "      \"Action\":[\"cloudsearch:search\"],\n"
+                                   + "      \"Condition\":{\"IpAddress\":{\"aws:SourceIp\":\"203.0.113.1/32\"}}\n"
+                                   + "    }\n"
+                                   + "  ]\n"
+                                   + "}";
+
     /** Reference to the cloud search client during the testing process. */
     private static CloudSearchClient cloudSearch = null;
     /**
@@ -94,7 +116,7 @@ public class CloudSearchv2IntegrationTest extends AwsIntegrationTestBase {
      */
     @BeforeClass
     public static void setUp() throws Exception {
-        cloudSearch = CloudSearchClient.builder().credentialsProvider(new StaticCredentialsProvider(getCredentials())).build();
+        cloudSearch = CloudSearchClient.builder().credentialsProvider(StaticCredentialsProvider.create(getCredentials())).build();
     }
 
     /**
@@ -178,7 +200,7 @@ public class CloudSearchv2IntegrationTest extends AwsIntegrationTestBase {
     public void testIndexDocuments() {
 
         IndexField indexField = IndexField.builder().indexFieldName(
-                testIndexName).indexFieldType(IndexFieldType.Literal).build();
+                testIndexName).indexFieldType(IndexFieldType.LITERAL).build();
 
         cloudSearch.defineIndexField(DefineIndexFieldRequest.builder()
                                                             .domainName(testDomainName).indexField(indexField).build());
@@ -253,7 +275,7 @@ public class CloudSearchv2IntegrationTest extends AwsIntegrationTestBase {
         IndexField field = null;
         DefineIndexFieldRequest.Builder defineIndexFieldRequest = DefineIndexFieldRequest.builder()
                                                                                          .domainName(testDomainName);
-        for (IndexFieldType type : IndexFieldType.values()) {
+        for (IndexFieldType type : IndexFieldType.knownValues()) {
             indexFieldName = type.toString();
             indexFieldName = indexFieldName.replaceAll("-", "");
             field = IndexField.builder().indexFieldType(type)
@@ -264,7 +286,7 @@ public class CloudSearchv2IntegrationTest extends AwsIntegrationTestBase {
 
         result = cloudSearch.describeIndexFields(describeIndexFieldRequest.toBuilder().deployed(false).build());
         List<IndexFieldStatus> indexFieldStatusList = result.indexFields();
-        assertTrue(indexFieldStatusList.size() == IndexFieldType.values().length);
+        assertTrue(indexFieldStatusList.size() == IndexFieldType.knownValues().size());
     }
 
     /**
@@ -322,7 +344,7 @@ public class CloudSearchv2IntegrationTest extends AwsIntegrationTestBase {
                                                                                          IndexField.builder()
                                                                                                    .indexFieldName(testIndexName)
                                                                                                    .indexFieldType(
-                                                                                                           IndexFieldType.Text)
+                                                                                                           IndexFieldType.TEXT)
                                                                                                    .textOptions(
                                                                                                            TextOptions.builder()
                                                                                                                       .analysisScheme(
@@ -381,7 +403,7 @@ public class CloudSearchv2IntegrationTest extends AwsIntegrationTestBase {
 
         AnalysisScheme analysisScheme = AnalysisScheme.builder()
                                                       .analysisSchemeName(testAnalysisSchemeName)
-                                                      .analysisSchemeLanguage(AnalysisSchemeLanguage.Ar).build();
+                                                      .analysisSchemeLanguage(AnalysisSchemeLanguage.AR).build();
         cloudSearch.defineAnalysisScheme(DefineAnalysisSchemeRequest.builder()
                                                                     .domainName(testDomainName).analysisScheme(
                         analysisScheme).build());
@@ -393,7 +415,7 @@ public class CloudSearchv2IntegrationTest extends AwsIntegrationTestBase {
                                        .domainName(testDomainName)
                                        .indexField(IndexField.builder()
                                                              .indexFieldName(testIndexName)
-                                                             .indexFieldType(IndexFieldType.Text)
+                                                             .indexFieldType(IndexFieldType.TEXT)
                                                              .textOptions(TextOptions.builder()
                                                                                      .analysisScheme(testAnalysisSchemeName)
                                                                                      .build()).build()).build();
@@ -407,7 +429,7 @@ public class CloudSearchv2IntegrationTest extends AwsIntegrationTestBase {
         assertEquals(schemeStatus.options().analysisSchemeName(),
                      testAnalysisSchemeName);
         assertEquals(schemeStatus.options().analysisSchemeLanguage(),
-                     AnalysisSchemeLanguage.Ar.toString());
+                     AnalysisSchemeLanguage.AR);
 
         DescribeIndexFieldsResponse describeIndexFieldsResult = cloudSearch
                 .describeIndexFields(DescribeIndexFieldsRequest.builder()
@@ -427,7 +449,7 @@ public class CloudSearchv2IntegrationTest extends AwsIntegrationTestBase {
     @Test
     public void testScalingParameters() {
         ScalingParameters scalingParameters = ScalingParameters.builder()
-                                                               .desiredInstanceType(PartitionInstanceType.SearchM1Small)
+                                                               .desiredInstanceType(PartitionInstanceType.SEARCH_M1_SMALL)
                                                                .desiredReplicationCount(5)
                                                                .desiredPartitionCount(5).build();
         cloudSearch.updateScalingParameters(UpdateScalingParametersRequest.builder()

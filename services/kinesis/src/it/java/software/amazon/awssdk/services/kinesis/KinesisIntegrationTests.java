@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,12 +15,19 @@
 
 package software.amazon.awssdk.services.kinesis;
 
+import static org.junit.Assert.assertThat;
+
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
+import org.hamcrest.Matchers;
 import org.junit.Assert;
 import org.junit.Test;
-import software.amazon.awssdk.AmazonServiceException;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.services.kinesis.model.CreateStreamRequest;
 import software.amazon.awssdk.services.kinesis.model.DeleteStreamRequest;
 import software.amazon.awssdk.services.kinesis.model.DescribeStreamRequest;
@@ -86,7 +93,7 @@ public class KinesisIntegrationTests extends AbstractTestCase {
         try {
             client.getRecords(GetRecordsRequest.builder().build());
             Assert.fail("Expected InvalidArgumentException");
-        } catch (AmazonServiceException exception) {
+        } catch (SdkServiceException exception) {
             // Ignored or expected.
         }
     }
@@ -181,6 +188,10 @@ public class KinesisIntegrationTests extends AbstractTestCase {
 
             records = result.records();
             if (records.size() > 0) {
+                long arrivalTime = records.get(0).approximateArrivalTimestamp().toEpochMilli();
+                Long delta = Math.abs(Instant.now().minusMillis(arrivalTime).toEpochMilli());
+                // Assert that the arrival date is within a minute of the current date to make sure it unmarshalled correctly.
+                assertThat(delta, Matchers.lessThan(60 * 1000L));
                 break;
             }
 
@@ -225,10 +236,13 @@ public class KinesisIntegrationTests extends AbstractTestCase {
         Assert.assertNotNull(record.sequenceNumber());
         new BigInteger(record.sequenceNumber());
 
-        String value = new String(record.data().array());
+        String value = record.data() == null ? null : record.data().asUtf8String();
         Assert.assertEquals(data, value);
 
         Assert.assertNotNull(record.partitionKey());
+
+        // The timestamp should be relatively recent
+        Assert.assertTrue(Duration.between(record.approximateArrivalTimestamp(), Instant.now()).toMinutes() < 5);
     }
 
     private void testPuts(final String streamName, final Shard shard)
@@ -367,7 +381,7 @@ public class KinesisIntegrationTests extends AbstractTestCase {
                 PutRecordRequest.builder()
                                 .streamName(streamName)
                                 .partitionKey("foobar")
-                                .data(ByteBuffer.wrap(data.getBytes()))
+                                .data(SdkBytes.fromUtf8String(data))
                                 .build());
         Assert.assertNotNull(result);
 
@@ -384,7 +398,7 @@ public class KinesisIntegrationTests extends AbstractTestCase {
                                                                   .streamName(streamName)
                                                                   .partitionKey("foobar")
                                                                   .explicitHashKey(hashKey)
-                                                                  .data(ByteBuffer.wrap("Speak No Evil".getBytes()))
+                                                                  .data(SdkBytes.fromUtf8String("Speak No Evil"))
                                                                   .build());
         Assert.assertNotNull(result);
 
@@ -403,7 +417,7 @@ public class KinesisIntegrationTests extends AbstractTestCase {
                                                                   .partitionKey("foobar")
                                                                   .explicitHashKey(hashKey)
                                                                   .sequenceNumberForOrdering(minSQN)
-                                                                  .data(ByteBuffer.wrap("Hear No Evil".getBytes()))
+                                                                  .data(SdkBytes.fromUtf8String("Hear No Evil"))
                                                                   .build());
         Assert.assertNotNull(result);
 
@@ -457,8 +471,7 @@ public class KinesisIntegrationTests extends AbstractTestCase {
             Assert.assertNotNull(description.streamARN());
             Assert.assertFalse(description.hasMoreShards());
 
-            StreamStatus status =
-                    StreamStatus.valueOf(description.streamStatus());
+            StreamStatus status = description.streamStatus();
             Assert.assertNotNull(status);
 
             if (status == StreamStatus.ACTIVE) {

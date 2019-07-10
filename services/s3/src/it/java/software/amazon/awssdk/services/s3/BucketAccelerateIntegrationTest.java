@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,18 +16,22 @@
 package software.amazon.awssdk.services.s3;
 
 import static org.junit.Assert.assertEquals;
+import static software.amazon.awssdk.testutils.service.S3BucketUtils.temporaryBucketName;
 
 import java.io.File;
 import java.util.List;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
+import software.amazon.awssdk.core.interceptor.Context;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.model.AccelerateConfiguration;
 import software.amazon.awssdk.services.s3.model.BucketAccelerateStatus;
 import software.amazon.awssdk.services.s3.model.BucketVersioningStatus;
-import software.amazon.awssdk.services.s3.model.CreateBucketConfiguration;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteBucketTaggingRequest;
 import software.amazon.awssdk.services.s3.model.GetBucketAccelerateConfigurationRequest;
 import software.amazon.awssdk.services.s3.model.GetBucketTaggingRequest;
@@ -40,18 +44,17 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.model.VersioningConfiguration;
-import software.amazon.awssdk.sync.RequestBody;
-import software.amazon.awssdk.test.retry.AssertCallable;
-import software.amazon.awssdk.test.retry.RetryableAssertion;
-import software.amazon.awssdk.test.retry.RetryableParams;
-
+import software.amazon.awssdk.testutils.RandomTempFile;
+import software.amazon.awssdk.testutils.retry.AssertCallable;
+import software.amazon.awssdk.testutils.retry.RetryableAssertion;
+import software.amazon.awssdk.testutils.retry.RetryableParams;
 
 /**
  * Integration tests for S3 bucket accelerate configuration.
  */
 public class BucketAccelerateIntegrationTest extends S3IntegrationTestBase {
 
-    private static final String US_BUCKET_NAME = "s3-accelerate-us-east-1-" + System.currentTimeMillis();
+    private static final String US_BUCKET_NAME = temporaryBucketName("s3-accelerate-us-east-1");
     private static final String KEY_NAME = "key";
 
     private static S3Client accelerateClient;
@@ -63,9 +66,10 @@ public class BucketAccelerateIntegrationTest extends S3IntegrationTestBase {
         accelerateClient = S3Client.builder()
                                    .region(Region.US_WEST_2)
                                    .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
-                                   .advancedConfiguration(S3AdvancedConfiguration.builder()
-                                                                                 .accelerateModeEnabled(true)
-                                                                                 .build())
+                                   .serviceConfiguration(S3Configuration.builder()
+                                                                        .accelerateModeEnabled(true)
+                                                                        .build())
+                                   .overrideConfiguration(o -> o.addExecutionInterceptor(new AccelerateValidatingInterceptor()))
                                    .build();
 
         setUpBuckets();
@@ -77,72 +81,30 @@ public class BucketAccelerateIntegrationTest extends S3IntegrationTestBase {
     }
 
     private static void setUpBuckets() {
-        s3.createBucket(CreateBucketRequest.builder().bucket(US_BUCKET_NAME).createBucketConfiguration(
-                CreateBucketConfiguration.builder().locationConstraint("us-west-2").build()).build());
+        createBucket(US_BUCKET_NAME);
     }
 
     @Test
-    public void testControlPlaneOperationsUnderAccelerateMode() throws Exception {
-        enableAccelerateOnBucket();
-
-        Tagging tags = Tagging.builder()
-                              .tagSet(Tag.builder()
-                                         .key("foo")
-                                         .value("bar")
-                                         .build())
-                              .build();
-
-        accelerateClient.putBucketTagging(PutBucketTaggingRequest.builder().bucket(US_BUCKET_NAME).tagging(tags).build());
-        accelerateClient.putBucketVersioning(PutBucketVersioningRequest.builder()
-                                                                       .bucket(US_BUCKET_NAME)
-                                                                       .versioningConfiguration(
-                                                                               VersioningConfiguration.builder()
-                                                                                                      .status("Enabled")
-                                                                                                      .build())
-                                                                       .build());
-
-        // Retry a couple of times due to eventual consistency
-        RetryableAssertion.doRetryableAssert(new AssertCallable() {
-            @Override
-            public void doAssert() {
-                List<Tag> taggingConfiguration = accelerateClient
-                        .getBucketTagging(GetBucketTaggingRequest.builder().bucket(US_BUCKET_NAME).build()).tagSet();
-
-                assertEquals("foo", taggingConfiguration.get(0).key());
-                assertEquals("bar", taggingConfiguration.get(0).value());
-            }
-        }, new RetryableParams().withMaxAttempts(30).withDelayInMs(200));
-
-        assertEquals(BucketVersioningStatus.Enabled.name(),
-                     accelerateClient.getBucketVersioning(GetBucketVersioningRequest.builder()
-                                                                                    .bucket(US_BUCKET_NAME)
-                                                                                    .build())
-                                     .status());
-
-        accelerateClient.deleteBucketTagging(DeleteBucketTaggingRequest.builder().bucket(US_BUCKET_NAME).build());
-    }
-
-    @Test
-    public void testUpdateAccelerateConfiguration() {
+    public void testUpdateAccelerateConfiguration() throws InterruptedException {
 
         String status = s3.getBucketAccelerateConfiguration(GetBucketAccelerateConfigurationRequest.builder()
                                                                                                    .bucket(US_BUCKET_NAME)
                                                                                                    .build())
-                          .status();
+                          .statusAsString();
 
         if (status == null || !status.equals("Enabled")) {
             enableAccelerateOnBucket();
         }
 
         assertEquals(
-                BucketAccelerateStatus.Enabled.toString(),
-                s3.getBucketAccelerateConfiguration(GetBucketAccelerateConfigurationRequest.builder()
-                                                                                           .bucket(US_BUCKET_NAME)
-                                                                                           .build())
-                  .status());
+            BucketAccelerateStatus.ENABLED,
+            s3.getBucketAccelerateConfiguration(GetBucketAccelerateConfigurationRequest.builder()
+                                                                                       .bucket(US_BUCKET_NAME)
+                                                                                       .build())
+              .status());
 
         disableAccelerateOnBucket();
-        assertEquals(BucketAccelerateStatus.Suspended.toString(),
+        assertEquals(BucketAccelerateStatus.SUSPENDED,
                      s3.getBucketAccelerateConfiguration(GetBucketAccelerateConfigurationRequest.builder()
                                                                                                 .bucket(US_BUCKET_NAME)
                                                                                                 .build())
@@ -155,39 +117,45 @@ public class BucketAccelerateIntegrationTest extends S3IntegrationTestBase {
         String status = s3.getBucketAccelerateConfiguration(GetBucketAccelerateConfigurationRequest.builder()
                                                                                                    .bucket(US_BUCKET_NAME)
                                                                                                    .build())
-                          .status();
+                          .statusAsString();
 
         if (status == null || !status.equals("Enabled")) {
             enableAccelerateOnBucket();
         }
 
         // PutObject
-        File uploadFile = getRandomTempFile(KEY_NAME, 1000);
-        accelerateClient.putObject(PutObjectRequest.builder()
-                                                   .bucket(US_BUCKET_NAME)
-                                                   .key(KEY_NAME)
-                                                   .build(),
-                                   RequestBody.of(uploadFile));
+        File uploadFile = new RandomTempFile(KEY_NAME, 1000);
+        try {
+            accelerateClient.putObject(PutObjectRequest.builder()
+                                                       .bucket(US_BUCKET_NAME)
+                                                       .key(KEY_NAME)
+                                                       .build(),
+                                       RequestBody.fromFile(uploadFile));
+        } catch (Exception e) {
+            // We really only need to verify the request is using the accelerate endpoint
+        }
     }
 
-    private void enableAccelerateOnBucket() {
+    private void enableAccelerateOnBucket() throws InterruptedException {
         s3.putBucketAccelerateConfiguration(
-                PutBucketAccelerateConfigurationRequest.builder()
-                                                       .bucket(US_BUCKET_NAME)
-                                                       .accelerateConfiguration(AccelerateConfiguration.builder()
-                                                                                                       .status(BucketAccelerateStatus.Enabled)
-                                                                                                       .build())
-                                                       .build());
+            PutBucketAccelerateConfigurationRequest.builder()
+                                                   .bucket(US_BUCKET_NAME)
+                                                   .accelerateConfiguration(AccelerateConfiguration.builder()
+                                                                                                   .status(BucketAccelerateStatus.ENABLED)
+                                                                                                   .build())
+                                                   .build());
+        // Wait a bit for accelerate to kick in
+        Thread.sleep(1000);
     }
 
     private void disableAccelerateOnBucket() {
         s3.putBucketAccelerateConfiguration(
-                PutBucketAccelerateConfigurationRequest.builder()
-                                                       .bucket(US_BUCKET_NAME)
-                                                       .accelerateConfiguration(AccelerateConfiguration.builder()
-                                                                                                       .status(BucketAccelerateStatus.Suspended)
-                                                                                                       .build())
-                                                       .build());
+            PutBucketAccelerateConfigurationRequest.builder()
+                                                   .bucket(US_BUCKET_NAME)
+                                                   .accelerateConfiguration(AccelerateConfiguration.builder()
+                                                                                                   .status(BucketAccelerateStatus.SUSPENDED)
+                                                                                                   .build())
+                                                   .build());
     }
 
     @Test
@@ -197,6 +165,16 @@ public class BucketAccelerateIntegrationTest extends S3IntegrationTestBase {
         } catch (Exception e) {
             throw e;
             //fail("Exception is not expected!");
+        }
+    }
+
+    private static final class AccelerateValidatingInterceptor implements ExecutionInterceptor {
+
+        @Override
+        public void beforeTransmission(Context.BeforeTransmission context, ExecutionAttributes executionAttributes) {
+        if (!(context.request() instanceof ListBucketsRequest)) {
+            assertEquals(context.httpRequest().host(), US_BUCKET_NAME + ".s3-accelerate.amazonaws.com");
+        }
         }
     }
 }

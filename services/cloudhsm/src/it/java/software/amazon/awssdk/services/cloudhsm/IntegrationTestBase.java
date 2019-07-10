@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,16 +16,15 @@
 package software.amazon.awssdk.services.cloudhsm;
 
 import org.junit.BeforeClass;
-import software.amazon.awssdk.auth.StaticCredentialsProvider;
-import software.amazon.awssdk.test.AwsTestBase;
+import software.amazon.awssdk.testutils.service.AwsTestBase;
 
 public class IntegrationTestBase extends AwsTestBase {
 
-    protected static CloudHSMClient client;
+    protected static CloudHsmClient client;
 
     @BeforeClass
     public static void setup() throws Exception {
         setUpCredentials();
-        client = CloudHSMClient.builder().credentialsProvider(new StaticCredentialsProvider(credentials)).build();
+        client = CloudHsmClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
     }
 }

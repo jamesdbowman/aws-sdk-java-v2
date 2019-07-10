@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -141,12 +141,6 @@ public class IonBodyAssertion extends MarshallingAssertion {
                             yInteger);
                     break;
 
-                case LIST:
-                case SEXP:
-                    x.stepIn();
-                    y.stepIn();
-                    break;
-
                 case NULL:
                     throw new IllegalStateException("We should never fall through to the IonType.NULL block due to previous " +
                                                     "assertions for equal types and nullness");
@@ -161,6 +155,8 @@ public class IonBodyAssertion extends MarshallingAssertion {
                             yString);
                     break;
 
+                case LIST:
+                case SEXP:
                 case STRUCT:
                     x.stepIn();
                     y.stepIn();

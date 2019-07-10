@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -25,9 +25,12 @@ import software.amazon.awssdk.codegen.internal.Jackson;
 import software.amazon.awssdk.codegen.internal.Utils;
 import software.amazon.awssdk.codegen.model.service.ServiceModel;
 
-public class ModelLoaderUtils {
+public final class ModelLoaderUtils {
 
-    public static final Logger log = LoggerFactory.getLogger(ModelLoaderUtils.class);
+    private static final Logger log = LoggerFactory.getLogger(ModelLoaderUtils.class);
+
+    private ModelLoaderUtils() {
+    }
 
     public static ServiceModel loadModel(String modelLocation) {
         return loadConfigurationModel(ServiceModel.class, modelLocation);
@@ -74,10 +77,26 @@ public class ModelLoaderUtils {
         }
     }
 
+    public static <T> T loadModel(Class<T> clzz, File file, boolean failOnUnknownProperties) {
+        try {
+            return Jackson.load(clzz, file, failOnUnknownProperties);
+        } catch (IOException e) {
+            log.error("Failed to read the configuration file {}", file.getAbsolutePath());
+            throw new RuntimeException(e);
+        }
+    }
+
     public static <T> Optional<T> loadOptionalModel(Class<T> clzz, File file) {
         if (!file.exists()) {
             return Optional.empty();
         }
         return Optional.of(loadModel(clzz, file));
+    }
+
+    public static <T> Optional<T> loadOptionalModel(Class<T> clzz, File file, boolean failOnUnknownProperties) {
+        if (!file.exists()) {
+            return Optional.empty();
+        }
+        return Optional.of(loadModel(clzz, file, failOnUnknownProperties));
     }
 }

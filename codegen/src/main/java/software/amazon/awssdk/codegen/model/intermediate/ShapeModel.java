@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
 
 package software.amazon.awssdk.codegen.model.intermediate;
 
-import static software.amazon.awssdk.codegen.internal.Constants.REQUEST_CLASS_SUFFIX;
-import static software.amazon.awssdk.codegen.internal.Constants.RESPONSE_CLASS_SUFFIX;
+import static software.amazon.awssdk.codegen.internal.Constant.REQUEST_CLASS_SUFFIX;
+import static software.amazon.awssdk.codegen.internal.Constant.RESPONSE_CLASS_SUFFIX;
 import static software.amazon.awssdk.codegen.internal.DocumentationUtils.removeFromEnd;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import software.amazon.awssdk.codegen.model.intermediate.customization.ShapeCustomizationInfo;
-import software.amazon.awssdk.util.StringUtils;
+import software.amazon.awssdk.utils.StringUtils;
 
 public class ShapeModel extends DocumentationModel implements HasDeprecation {
 
@@ -43,13 +43,13 @@ public class ShapeModel extends DocumentationModel implements HasDeprecation {
     private boolean hasHeaderMember;
     private boolean hasStatusCodeMember;
     private boolean hasStreamingMember;
+    private boolean hasRequiresLengthMember;
     private boolean wrapper;
     private boolean simpleMethod;
     private String requestSignerClassFqcn;
+    private EndpointDiscovery endpointDiscovery;
 
     private List<MemberModel> members;
-    // Any constructor in addition to the default no-arg
-    private List<ConstructorModel> additionalConstructors;
     private List<EnumModel> enums;
 
     private VariableModel variable;
@@ -58,8 +58,13 @@ public class ShapeModel extends DocumentationModel implements HasDeprecation {
     private ShapeUnmarshaller unmarshaller;
 
     private String errorCode;
+    private Integer httpStatusCode;
 
     private ShapeCustomizationInfo customization = new ShapeCustomizationInfo();
+
+    private boolean isEventStream;
+
+    private boolean isEvent;
 
     public ShapeModel(@JsonProperty("c2jName") String c2jName) {
         this.c2jName = c2jName;
@@ -174,10 +179,52 @@ public class ShapeModel extends DocumentationModel implements HasDeprecation {
     }
 
     /**
+     * @return The list of members whose are not marked with either eventheader or eventpayload trait.
+     */
+    @JsonIgnore
+    public List<MemberModel> getUnboundEventMembers() {
+        if (members == null) {
+            return new ArrayList<>();
+        }
+
+        return members.stream()
+                      .filter(m -> !m.isEventHeader())
+                      .filter(m -> !m.isEventPayload())
+                      .collect(Collectors.toList());
+    }
+
+    /**
      * @return True if the shape has an explicit payload member or implicit payload member(s).
      */
     public boolean hasPayloadMembers() {
-        return hasPayloadMember || getUnboundMembers().size() > 0;
+        return hasPayloadMember ||
+               getExplicitEventPayloadMember() != null ||
+               !getUnboundMembers().isEmpty() ||
+               (isEvent() && !getUnboundEventMembers().isEmpty());
+    }
+
+    /**
+     * Explicit event payload member will have "eventpayload" trait set to true.
+     * There can be at most only one member that can be declared as explicit payload.
+     *
+     * @return the member that has the 'eventpayload' trait set to true. If none found, return null.
+     */
+    public MemberModel getExplicitEventPayloadMember() {
+        if (members == null) {
+            return null;
+        }
+
+        return members.stream()
+                      .filter(MemberModel::isEventPayload)
+                      .findFirst()
+                      .orElse(null);
+    }
+
+    /**
+     * If all members in shape have eventheader trait, then there is no payload
+     */
+    public boolean hasNoEventPayload() {
+        return members == null || members.stream().allMatch(m -> m.isEventHeader());
     }
 
     public boolean isHasStreamingMember() {
@@ -190,6 +237,19 @@ public class ShapeModel extends DocumentationModel implements HasDeprecation {
 
     public ShapeModel withHasStreamingMember(boolean hasStreamingMember) {
         setHasStreamingMember(hasStreamingMember);
+        return this;
+    }
+
+    public boolean isHasRequiresLengthMember() {
+        return hasRequiresLengthMember;
+    }
+
+    public void setHasRequiresLengthMember(boolean hasRequiresLengthMember) {
+        this.hasRequiresLengthMember = hasRequiresLengthMember;
+    }
+
+    public ShapeModel withHasRequiresLengthMember(boolean hasRequiresLengthMember) {
+        setHasRequiresLengthMember(hasRequiresLengthMember);
         return this;
     }
 
@@ -274,7 +334,10 @@ public class ShapeModel extends DocumentationModel implements HasDeprecation {
      */
     public List<MemberModel> getNonStreamingMembers() {
         return getMembers().stream()
+                           // Filter out binary streaming members
                            .filter(m -> !m.getHttp().getIsStreaming())
+                           // Filter out event stream members (if shape is null then it's primitive and we should include it).
+                           .filter(m -> m.getShape() == null || !m.getShape().isEventStream)
                            .collect(Collectors.toList());
     }
 
@@ -287,22 +350,6 @@ public class ShapeModel extends DocumentationModel implements HasDeprecation {
             this.members = new ArrayList<MemberModel>();
         }
         members.add(member);
-    }
-
-    @JsonIgnore
-    public List<ConstructorModel> getAdditionalConstructors() {
-        return additionalConstructors;
-    }
-
-    public void setAdditionalConstructors(List<ConstructorModel> additionalConstructors) {
-        this.additionalConstructors = additionalConstructors;
-    }
-
-    public void addConstructor(ConstructorModel constructor) {
-        if (this.additionalConstructors == null) {
-            this.additionalConstructors = new ArrayList<ConstructorModel>();
-        }
-        this.additionalConstructors.add(constructor);
     }
 
     public List<EnumModel> getEnums() {
@@ -353,11 +400,11 @@ public class ShapeModel extends DocumentationModel implements HasDeprecation {
     }
 
     public Map<String, MemberModel> getMembersAsMap() {
-        final Map<String, MemberModel> shapeMembers = new HashMap<String, MemberModel>();
+        Map<String, MemberModel> shapeMembers = new HashMap<String, MemberModel>();
 
         // Creating a map of shape's members. This map is used below when
-        // fetching the details of a memeber.
-        final List<MemberModel> memberModels = getMembers();
+        // fetching the details of a member.
+        List<MemberModel> memberModels = getMembers();
         if (memberModels != null) {
             for (MemberModel model : memberModels) {
                 shapeMembers.put(model.getName(), model);
@@ -372,8 +419,8 @@ public class ShapeModel extends DocumentationModel implements HasDeprecation {
      */
     private MemberModel tryFindMemberModelByC2jName(String memberC2jName, boolean ignoreCase) {
 
-        final List<MemberModel> memberModels = getMembers();
-        final String expectedName = ignoreCase ? StringUtils.lowerCase(memberC2jName)
+        List<MemberModel> memberModels = getMembers();
+        String expectedName = ignoreCase ? StringUtils.lowerCase(memberC2jName)
                                                : memberC2jName;
 
         if (memberModels != null) {
@@ -455,6 +502,17 @@ public class ShapeModel extends DocumentationModel implements HasDeprecation {
         this.errorCode = errorCode;
     }
 
+    /**
+     * Return the httpStatusCode of the exception shape. This value is present only for modeled exceptions.
+     */
+    public Integer getHttpStatusCode() {
+        return httpStatusCode;
+    }
+
+    public void setHttpStatusCode(Integer httpStatusCode) {
+        this.httpStatusCode = httpStatusCode;
+    }
+
     public boolean isRequestSignerAware() {
         return requestSignerClassFqcn != null;
     }
@@ -467,4 +525,37 @@ public class ShapeModel extends DocumentationModel implements HasDeprecation {
         this.requestSignerClassFqcn = authorizerClass;
     }
 
+    public EndpointDiscovery getEndpointDiscovery() {
+        return endpointDiscovery;
+    }
+
+    public void setEndpointDiscovery(EndpointDiscovery endpointDiscovery) {
+        this.endpointDiscovery = endpointDiscovery;
+    }
+
+    /**
+     * @return True if the shape is an 'eventstream' shape. The eventstream shape is the tagged union like
+     * container that holds individual 'events'.
+     */
+    public boolean isEventStream() {
+        return this.isEventStream;
+    }
+
+    public ShapeModel withIsEventStream(boolean isEventStream) {
+        this.isEventStream = isEventStream;
+        return this;
+    }
+
+    /**
+     * @return True if the shape is an 'event'. I.E. It is a member of the eventstream and represents one logical event
+     * that can be delivered on the event stream.
+     */
+    public boolean isEvent() {
+        return this.isEvent;
+    }
+
+    public ShapeModel withIsEvent(boolean isEvent) {
+        this.isEvent = isEvent;
+        return this;
+    }
 }

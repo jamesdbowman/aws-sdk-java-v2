@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,14 +15,13 @@
 
 package software.amazon.awssdk.utils;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.isEmptyString;
-import static org.junit.Assert.assertEquals;
+import static java.util.Collections.singletonList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import org.junit.Test;
@@ -31,7 +30,7 @@ public class CollectionUtilsTest {
 
     @Test
     public void isEmpty_NullCollection_ReturnsTrue() {
-        assertTrue(CollectionUtils.isNullOrEmpty(null));
+        assertTrue(CollectionUtils.isNullOrEmpty((Collection<?>) null));
     }
 
     @Test
@@ -45,39 +44,29 @@ public class CollectionUtilsTest {
     }
 
     @Test
-    public void join_NullCollection_ReturnsNull() {
-        assertThat(CollectionUtils.join(null, ","), isEmptyString());
+    public void firstIfPresent_NullList_ReturnsNull() {
+        List<String> list = null;
+        assertThat(CollectionUtils.firstIfPresent(list)).isNull();
     }
 
     @Test
-    public void join_EmptyCollection_ReturnsNull() {
-        assertThat(CollectionUtils.join(Collections.<String>emptyList(), ","), isEmptyString());
+    public void firstIfPresent_EmptyList_ReturnsNull() {
+        List<String> list = Collections.emptyList();
+        assertThat(CollectionUtils.firstIfPresent(list)).isNull();
     }
 
     @Test
-    public void join_SingleItemCollection_ReturnsItemAsString() {
-        assertEquals("foo", CollectionUtils.join(Arrays.asList("foo"), ","));
+    public void firstIfPresent_SingleElementList_ReturnsOnlyElement() {
+        assertThat(CollectionUtils.firstIfPresent(singletonList("foo"))).isEqualTo("foo");
     }
 
     @Test
-    public void join_SingleItemCollectionOfNullString_ReturnsEmptyString() {
-        List<String> list = new ArrayList<String>();
-        list.add(null);
-        assertEquals("", CollectionUtils.join(list, ","));
+    public void firstIfPresent_MultipleElementList_ReturnsFirstElement() {
+        assertThat(CollectionUtils.firstIfPresent(Arrays.asList("foo", "bar", "baz"))).isEqualTo("foo");
     }
 
     @Test
-    public void join_MultiItemCollection_ReturnsItemsJoinedWithSeparator() {
-        assertEquals("foo,bar,baz", CollectionUtils.join(Arrays.asList("foo", "bar", "baz"), ","));
-    }
-
-    @Test
-    public void join_MultiItemCollectionWithNullItem_ReturnsItemsJoinedWithSeparator() {
-        assertEquals("foo,,baz", CollectionUtils.join(Arrays.asList("foo", null, "baz"), ","));
-    }
-
-    @Test
-    public void join_MultiItemCollectionWithAllNulls_ReturnsItemsJoinedWithSeparator() {
-        assertEquals(",,", CollectionUtils.join(Arrays.<String>asList(null, null, null), ","));
+    public void firstIfPresent_FirstElementNull_ReturnsNull() {
+        assertThat(CollectionUtils.firstIfPresent(Arrays.asList(null, "bar", "baz"))).isNull();
     }
 }

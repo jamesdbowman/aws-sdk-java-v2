@@ -21,6 +21,30 @@
     }
   },
   {
+    "description": "Streaming payload member is marshalled correctly",
+    "given": {
+      "input": {
+        "StreamingMember": "contents"
+      }
+    },
+    "when": {
+      "action": "marshall",
+      "operation": "StreamingInputOperation"
+    },
+    "then": {
+      "serializedAs": {
+        "headers": {
+          "contains": {
+            "Content-Length": "8"
+          }
+        },
+        "body": {
+          "equals": "contents"
+        }
+      }
+    }
+  },
+  {
     "description": "Scalar Members are marshalled correctly into the query params",
     "given": {
       "input": {
@@ -410,6 +434,27 @@
         "params": {
           "contains": {
             "timestampMember": "2015-01-25T08:00:00.123Z"
+          }
+        }
+      }
+    }
+  },
+  {
+    "description": "No parameters set, does not set query request params",
+    "given": {
+      "input": {
+      }
+    },
+    "when": {
+      "action": "marshall",
+      "operation": "AllTypes"
+    },
+    "then": {
+      "serializedAs": {
+        "params": {
+          "containsOnly": {
+            "Action": "AllTypes",
+            "Version": "2016-03-11"
           }
         }
       }

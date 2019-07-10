@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import org.junit.Before;
 import org.junit.Test;
 import software.amazon.awssdk.services.servicecatalog.model.ListRecordHistoryRequest;
 import software.amazon.awssdk.services.servicecatalog.model.RecordDetail;
-import software.amazon.awssdk.test.AwsIntegrationTestBase;
+import software.amazon.awssdk.testutils.service.AwsIntegrationTestBase;
 
 public class ServiceCatalogIntegrationTest extends AwsIntegrationTestBase {
 

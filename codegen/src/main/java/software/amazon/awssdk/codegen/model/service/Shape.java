@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -40,6 +40,8 @@ public class Shape {
 
     private boolean streaming;
 
+    private boolean requiresLength;
+
     private boolean wrapper;
 
     private Member listMember;
@@ -47,8 +49,6 @@ public class Shape {
     private Member mapKeyType;
 
     private Member mapValueType;
-
-    // TODO: There are two properties min and max. Check if this is needed.
 
     @JsonProperty(value = "error")
     private ErrorTrait errorTrait;
@@ -62,6 +62,16 @@ public class Shape {
     private boolean fault;
 
     private boolean deprecated;
+
+    @JsonProperty(value = "eventstream")
+    private boolean isEventStream;
+
+    @JsonProperty(value = "event")
+    private boolean isEvent;
+
+    private String timestampFormat;
+
+    private boolean sensitive;
 
     public boolean isFault() {
         return fault;
@@ -195,6 +205,14 @@ public class Shape {
         this.streaming = streaming;
     }
 
+    public boolean isRequiresLength() {
+        return requiresLength;
+    }
+
+    public void setRequiresLength(boolean requiresLength) {
+        this.requiresLength = requiresLength;
+    }
+
     public boolean isWrapper() {
         return wrapper;
     }
@@ -217,5 +235,37 @@ public class Shape {
 
     public void setDeprecated(boolean deprecated) {
         this.deprecated = deprecated;
+    }
+
+    public boolean isEventStream() {
+        return isEventStream;
+    }
+
+    public void setIsEventStream(boolean eventStream) {
+        isEventStream = eventStream;
+    }
+
+    public boolean isEvent() {
+        return isEvent;
+    }
+
+    public void setIsEvent(boolean event) {
+        isEvent = event;
+    }
+
+    public String getTimestampFormat() {
+        return timestampFormat;
+    }
+
+    public void setTimestampFormat(String timestampFormat) {
+        this.timestampFormat = timestampFormat;
+    }
+
+    public boolean isSensitive() {
+        return sensitive;
+    }
+
+    public void setSensitive(boolean sensitive) {
+        this.sensitive = sensitive;
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -25,27 +25,27 @@ import software.amazon.awssdk.services.ecs.model.ContainerDefinition;
 import software.amazon.awssdk.services.ecs.model.CreateClusterRequest;
 import software.amazon.awssdk.services.ecs.model.CreateClusterResponse;
 import software.amazon.awssdk.services.ecs.model.DeleteClusterRequest;
-import software.amazon.awssdk.services.ecs.model.DescribeClustersRequest;
 import software.amazon.awssdk.services.ecs.model.ListClustersRequest;
 import software.amazon.awssdk.services.ecs.model.ListTaskDefinitionsRequest;
 import software.amazon.awssdk.services.ecs.model.PortMapping;
 import software.amazon.awssdk.services.ecs.model.RegisterTaskDefinitionRequest;
 import software.amazon.awssdk.services.ecs.model.RegisterTaskDefinitionResponse;
-import software.amazon.awssdk.test.AwsTestBase;
+import software.amazon.awssdk.testutils.Waiter;
+import software.amazon.awssdk.testutils.service.AwsTestBase;
 
 public class EC2ContainerServiceIntegrationTest extends AwsTestBase {
 
     private static final String CLUSTER_NAME =
             "java-sdk-test-cluster-" + System.currentTimeMillis();
 
-    private static ECSClient client;
+    private static EcsClient client;
     private static String clusterArn;
 
     @BeforeClass
     public static void setup() throws Exception {
         setUpCredentials();
 
-        client = ECSClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
+        client = EcsClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
 
         CreateClusterResponse result = client.createCluster(CreateClusterRequest.builder()
                 .clusterName(CLUSTER_NAME)
@@ -57,15 +57,9 @@ public class EC2ContainerServiceIntegrationTest extends AwsTestBase {
 
         clusterArn = result.cluster().clusterArn();
 
-        while (!client.describeClusters(DescribeClustersRequest.builder()
-                .clusters(CLUSTER_NAME)
-                .build())
-                .clusters()
-                .get(0)
-                .status().equals("ACTIVE")) {
-
-            Thread.sleep(1000);
-        }
+        Waiter.run(() -> client.describeClusters(r -> r.clusters(CLUSTER_NAME)))
+              .until(resp -> resp.clusters().stream().findFirst().filter(c -> c.status().equals("ACTIVE")).isPresent())
+              .orFail();
     }
 
     @AfterClass

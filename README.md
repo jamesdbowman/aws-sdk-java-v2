@@ -1,12 +1,19 @@
-# AWS SDK for Java 2.0 Developer Preview [![Build Status](https://travis-ci.org/aws/aws-sdk-java-v2.svg?branch=master)](https://travis-ci.org/aws/aws-sdk-java-v2)
+# AWS SDK for Java 2.0
+[![Build Status](https://travis-ci.org/aws/aws-sdk-java-v2.svg?branch=master)](https://travis-ci.org/aws/aws-sdk-java-v2) ![Build Status](https://codebuild.us-west-2.amazonaws.com/badges?uuid=eyJlbmNyeXB0ZWREYXRhIjoiTFJSRXBBN1hkU1ZEQzZ4M1hoaWlFUExuNER3WjNpVllSQ09Qam1YdFlTSDNTd3RpZzNia3F0VkJRUTBwZlQwR1BEelpSV2dWVnp4YTBCOFZKRzRUR004PSIsIml2UGFyYW1ldGVyU3BlYyI6ImdHdEp1UHhKckpDRmhmQU4iLCJtYXRlcmlhbFNldFNlcmlhbCI6MX0%3D&branch=master)
+[![Maven](https://img.shields.io/maven-central/v/software.amazon.awssdk/s3.svg?label=Maven)](https://search.maven.org/search?q=g:%22software.amazon.awssdk%22%20AND%20a:%22s3%22)
+[![Gitter](https://badges.gitter.im/aws/aws-sdk-java-v2.svg)](https://gitter.im/aws/aws-sdk-java-v2?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) 
+[![codecov](https://codecov.io/gh/aws/aws-sdk-java-v2/branch/master/graph/badge.svg)](https://codecov.io/gh/aws/aws-sdk-java-v2)
 
-The **AWS SDK for Java 2.0 Developer Preview** is a rewrite of 1.0 with some great new features. As with version 1.0,
-it enables you to easily work with [Amazon Web Services][aws] but also includes features like non-blocking IO and pluggable
-HTTP implementation to further customize your applications. You can get started in minutes using ***Maven*** or any build system that supports MavenCentral as an artifact source.
-
-**NOTE** 2.0 version still a preview and is not recommended for production use yet.
+The **AWS SDK for Java 2.0** is a rewrite of 1.0 with some great new features. As with version 1.0,
+it enables you to easily work with [Amazon Web Services][aws] but also includes features like
+non-blocking IO and pluggable HTTP implementation to further customize your applications. You can
+get started in minutes using ***Maven*** or any build system that supports MavenCentral as an
+artifact source.
 
 * [SDK Homepage][sdk-website]
+* [1.11 to 2.0 Changelog](docs/LaunchChangelog.md)
+* [Best Practices](docs/BestPractices.md)
+* [Sample Code](#sample-code)
 * [API Docs][docs-api]
 * [Developer Guide][docs-guide] ([source][docs-guide-source])
 * [Issues][sdk-issues]
@@ -27,13 +34,42 @@ To run the SDK you will need **Java 1.8+**. For more information about the requi
 settings for the SDK, please see the [Installing a Java Development Environment][docs-java-env]
 section of the developer guide.
 
-#### Install the SDK ####
+## Using the SDK
 
-The recommended way to use the AWS SDK for Java in your project is to consume it from Maven. Import
-the [bom][] and specify the SDK Maven modules that your project needs in the
-dependencies.
+The recommended way to use the AWS SDK for Java in your project is to consume it from Maven. 
 
-##### Importing the BOM #####
+#### Whole SDK ####
+
+You can import the whole SDK into your project (includes all services) as follows:
+
+```xml
+<dependency>
+  <groupId>software.amazon.awssdk</groupId>
+  <artifactId>aws-sdk-java</artifactId>
+  <version>2.7.3</version>
+</dependency>
+```
+
+#### Individual Services ####
+
+Alternatively you can add dependencies for the specific services you use only:
+
+```xml
+<dependency>
+  <groupId>software.amazon.awssdk</groupId>
+  <artifactId>ec2</artifactId>
+  <version>2.7.3</version>
+</dependency>
+<dependency>
+  <groupId>software.amazon.awssdk</groupId>
+  <artifactId>s3</artifactId>
+  <version>2.7.3</version>
+</dependency>
+```
+
+#### Importing the BOM ####
+
+To automatically manage module versions (currently all modules have the same version, but this may not always be the case) we recommend you use the [Bill of Materials][bom] import as follows:
 
 ```xml
 <dependencyManagement>
@@ -41,7 +77,7 @@ dependencies.
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>bom</artifactId>
-      <version>2.0.0-preview-2</version>
+      <version>2.7.3</version>
       <type>pom</type>
       <scope>import</scope>
     </dependency>
@@ -49,7 +85,7 @@ dependencies.
 </dependencyManagement>
 ```
 
-##### Using the SDK Maven modules #####
+Then individual models may omit the `version` from their dependency statement:
 
 ```xml
 <dependencies>
@@ -68,10 +104,9 @@ dependencies.
 </dependencies>
 ```
 
-See the [Set up the AWS SDK for Java][docs-setup] section of the developer guide for more
-information about installing the SDK through other means.
+See the [Set up the AWS SDK for Java][docs-setup] section of the developer guide for more usage information.
 
-## New Features for Developer Preview
+## New Features for 2.0
 
 * Provides a way to plug in your own HTTP implementation.
 
@@ -79,12 +114,23 @@ information about installing the SDK through other means.
 
 ## Building From Source
 
-Once you check out the code from GitHub, you can build it using Maven. To disable the GPG-signing
-in the build, use:
+Once you check out the code from GitHub, you can build it using Maven.
 
 ```sh
-mvn clean install -Dgpg.skip=true
+mvn clean install
+
+# Skip tests, checkstyles, findbugs, etc for quick build
+mvn clean install -P quick
+
+# Build a specific service module
+mvn clean install -pl :s3 -P quick --am
 ```
+
+## Sample Code
+You can find sample code for v2 in the following places:
+
+* [aws-doc-sdk-examples] repo.
+* Integration tests in this repo. They are located in the `it` directory under each service module, eg: [s3-integration-tests]
 
 ## Giving Feedback
 We need your help in making this SDK great. Please participate in the community and contribute to this effort by submitting issues, participating in discussion forums and submitting pull requests through the following channels.
@@ -97,7 +143,7 @@ We need your help in making this SDK great. Please participate in the community 
 [aws-iam-credentials]: http://docs.aws.amazon.com/sdk-for-java/v2/developer-guide/java-dg-roles.html
 [aws]: http://aws.amazon.com/
 [blog]: https://aws.amazon.com/blogs/developer/category/java/
-[docs-api]: http://aws-java-sdk-javadoc.s3-website-us-west-2.amazonaws.com/latest/overview-summary.html
+[docs-api]: https://sdk.amazonaws.com/java/api/latest/overview-summary.html
 [docs-guide]: http://docs.aws.amazon.com/sdk-for-java/v2/developer-guide/welcome.html
 [docs-guide-source]: https://github.com/awsdocs/aws-java-developer-guide-v2
 [docs-java-env]: http://docs.aws.amazon.com/sdk-for-java/v2/developer-guide/setup-install.html##java-dg-java-env
@@ -112,3 +158,6 @@ We need your help in making this SDK great. Please participate in the community 
 [features]: https://github.com/aws/aws-sdk-java-v2/issues?q=is%3Aopen+is%3Aissue+label%3A%22Feature+Request%22
 [support-center]: https://console.aws.amazon.com/support/
 [console]: https://console.aws.amazon.com
+[bom]: http://search.maven.org/#search%7Cgav%7C1%7Cg%3A%22software.amazon.awssdk%22%20AND%20a%3A%22bom%22
+[aws-doc-sdk-examples]: https://github.com/awsdocs/aws-doc-sdk-examples/tree/master/javav2
+[s3-integration-tests]: https://github.com/aws/aws-sdk-java-v2/tree/master/services/s3/src/it/java/software/amazon/awssdk/services/s3

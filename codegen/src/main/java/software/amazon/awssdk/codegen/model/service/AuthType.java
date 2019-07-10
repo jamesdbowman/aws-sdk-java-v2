@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -24,11 +24,10 @@ public enum AuthType {
     NONE("none"),
     CUSTOM("custom"),
     IAM("iam"),
-    V2("v2"),
-    V3("v3"),
-    V3_HTTPS("v3https"),
     V4("v4"),
-    S3("s3");
+    V4_UNSIGNED_BODY("v4-unsigned-body"),
+    S3("s3")
+    ;
 
     private final String value;
 

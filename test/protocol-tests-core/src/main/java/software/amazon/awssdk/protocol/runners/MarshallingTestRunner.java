@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -27,11 +27,11 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.verification.LoggedRequest;
 import java.util.List;
 import software.amazon.awssdk.codegen.model.intermediate.IntermediateModel;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.protocol.model.TestCase;
 import software.amazon.awssdk.protocol.reflect.ClientReflector;
 import software.amazon.awssdk.protocol.reflect.ShapeModelReflector;
 import software.amazon.awssdk.protocol.wiremock.WireMockUtils;
-import software.amazon.awssdk.sync.RequestBody;
 
 /**
  * Test runner for test cases exercising the client marshallers.
@@ -63,7 +63,7 @@ class MarshallingTestRunner {
         } else {
             clientReflector.invokeMethod(testCase,
                                          shapeModelReflector.createShapeObject(),
-                                         RequestBody.of(shapeModelReflector.getStreamingMemberValue()));
+                                         RequestBody.fromString(shapeModelReflector.getStreamingMemberValue()));
         }
         LoggedRequest actualRequest = getLoggedRequest();
         testCase.getThen().getMarshallingAssertion().assertMatches(actualRequest);
@@ -75,7 +75,7 @@ class MarshallingTestRunner {
     private void resetWireMock() {
         WireMock.reset();
         // Stub to return 200 for all requests
-        final ResponseDefinitionBuilder responseDefBuilder = aResponse().withStatus(200);
+        ResponseDefinitionBuilder responseDefBuilder = aResponse().withStatus(200);
         // XML Unmarshallers expect at least one level in the XML document.
         if (model.getMetadata().isXmlProtocol()) {
             responseDefBuilder.withBody("<foo></foo>");
@@ -84,9 +84,9 @@ class MarshallingTestRunner {
     }
 
     private ShapeModelReflector createShapeModelReflector(TestCase testCase) {
-        final String operationName = testCase.getWhen().getOperationName();
-        final String requestClassName = getOperationRequestClassName(operationName);
-        final JsonNode input = testCase.getGiven().getInput();
+        String operationName = testCase.getWhen().getOperationName();
+        String requestClassName = getOperationRequestClassName(operationName);
+        JsonNode input = testCase.getGiven().getInput();
         return new ShapeModelReflector(model, requestClassName, input);
     }
 

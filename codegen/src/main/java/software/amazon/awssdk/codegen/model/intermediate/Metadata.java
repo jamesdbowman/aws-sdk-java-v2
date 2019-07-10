@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,9 +15,8 @@
 
 package software.amazon.awssdk.codegen.model.intermediate;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import software.amazon.awssdk.awscore.exception.AwsErrorDetails;
 import software.amazon.awssdk.codegen.model.service.AuthType;
-import software.amazon.awssdk.codegen.protocol.ProtocolMetadataProvider;
 import software.amazon.awssdk.utils.StringUtils;
 
 public class Metadata {
@@ -25,11 +24,6 @@ public class Metadata {
     private String apiVersion;
 
     private Protocol protocol;
-
-    private ProtocolMetadataProvider protocolMetadataProvider;
-
-    // TODO Not sure if this is needed.Remove if not needed.
-    private String checksumFormat;
 
     private String documentation;
 
@@ -69,19 +63,17 @@ public class Metadata {
 
     private String requestTransformPackageName;
 
-    private String waitersPackageName;
+    private String paginatorsPackageName;
 
     private String authPolicyPackageName;
-
-    private String smokeTestsPackageName;
 
     private String serviceAbbreviation;
 
     private String serviceFullName;
 
-    private String baseExceptionName;
+    private String serviceName;
 
-    private boolean hasApiWithStreamInput;
+    private String baseExceptionName;
 
     private String contentType;
 
@@ -98,6 +90,14 @@ public class Metadata {
     private String uid;
 
     private AuthType authType;
+
+    private String baseRequestName;
+
+    private String baseResponseName;
+
+    private boolean supportsH2;
+
+    private String serviceId;
 
     public String getApiVersion() {
         return apiVersion;
@@ -118,32 +118,10 @@ public class Metadata {
 
     public void setProtocol(Protocol protocol) {
         this.protocol = protocol;
-        this.protocolMetadataProvider = protocol.getProvider();
     }
 
     public Metadata withProtocol(Protocol protocol) {
         setProtocol(protocol);
-        return this;
-    }
-
-    /**
-     * @return The default implementation of exception unmarshallers to use when no custom one is
-     *     provided through {@link software.amazon.awssdk.codegen.model.config.customization.CustomizationConfig}
-     */
-    public String getProtocolDefaultExceptionUmarshallerImpl() {
-        return protocolMetadataProvider.getExceptionUnmarshallerImpl();
-    }
-
-    public String getChecksumFormat() {
-        return checksumFormat;
-    }
-
-    public void setChecksumFormat(String checksumFormat) {
-        this.checksumFormat = checksumFormat;
-    }
-
-    public Metadata withChecksumFormat(String checksumFormat) {
-        setChecksumFormat(checksumFormat);
         return this;
     }
 
@@ -191,12 +169,12 @@ public class Metadata {
     }
 
     public void setDefaultEndpointWithoutHttpProtocol(
-            String defaultEndpointWithoutHttpProtocol) {
+        String defaultEndpointWithoutHttpProtocol) {
         this.defaultEndpointWithoutHttpProtocol = defaultEndpointWithoutHttpProtocol;
     }
 
     public Metadata withDefaultEndpointWithoutHttpProtocol(
-            String defaultEndpointWithoutHttpProtocol) {
+        String defaultEndpointWithoutHttpProtocol) {
         setDefaultEndpointWithoutHttpProtocol(defaultEndpointWithoutHttpProtocol);
         return this;
     }
@@ -212,11 +190,6 @@ public class Metadata {
     public Metadata withSyncInterface(String syncInterface) {
         setSyncInterface(syncInterface);
         return this;
-    }
-
-    @JsonIgnore
-    public String getSyncAbstractClass() {
-        return syncInterface == null ? null : "Abstract" + syncInterface;
     }
 
     public String getSyncClient() {
@@ -269,11 +242,6 @@ public class Metadata {
     public Metadata withAsyncInterface(String asyncInterface) {
         setAsyncInterface(asyncInterface);
         return this;
-    }
-
-    @JsonIgnore
-    public String getAsyncAbstractClass() {
-        return asyncInterface == null ? null : "Abstract" + asyncInterface;
     }
 
     public String getAsyncClient() {
@@ -435,20 +403,20 @@ public class Metadata {
         return this;
     }
 
-    public String getFullWaitersPackageName() {
-        return joinPackageNames(rootPackageName, getWaitersPackageName());
+    public String getFullPaginatorsPackageName() {
+        return joinPackageNames(rootPackageName, getPaginatorsPackageName());
     }
 
-    public String getWaitersPackageName() {
-        return waitersPackageName;
+    public String getPaginatorsPackageName() {
+        return paginatorsPackageName;
     }
 
-    public void setWaitersPackageName(String waitersPackageName) {
-        this.waitersPackageName = waitersPackageName;
+    public void setPaginatorsPackageName(String paginatorsPackageName) {
+        this.paginatorsPackageName = paginatorsPackageName;
     }
 
-    public Metadata withWaitersPackageName(String waitersPackageName) {
-        setWaitersPackageName(waitersPackageName);
+    public Metadata withPaginatorsPackageName(String paginatorsPackageName) {
+        setPaginatorsPackageName(paginatorsPackageName);
         return this;
     }
 
@@ -465,41 +433,8 @@ public class Metadata {
     }
 
     public Metadata withAuthPolicyPackageName(String authPolicyPackageName) {
-        setSmokeTestsPackageName(authPolicyPackageName);
+        setAuthPolicyPackageName(authPolicyPackageName);
         return this;
-    }
-
-    public String getFullSmokeTestsPackageName() {
-        return joinPackageNames(rootPackageName, getSmokeTestsPackageName());
-    }
-
-    public String getSmokeTestsPackageName() {
-        return smokeTestsPackageName;
-    }
-
-    public void setSmokeTestsPackageName(String smokeTestsPackageName) {
-        this.smokeTestsPackageName = smokeTestsPackageName;
-    }
-
-    public Metadata withSmokeTestsPackageName(String smokeTestsPackageName) {
-        setSmokeTestsPackageName(smokeTestsPackageName);
-        return this;
-    }
-
-    /**
-     * @return The class name for service specific ModuleInjector.
-     */
-    public String getCucumberModuleInjectorClassName() {
-        return getSyncInterface() + "ModuleInjector";
-    }
-
-    /**
-     * Returns an abbreviated name for the service if one is defined in the
-     * service model; for example "Amazon EC2". Returns null if no abbreviation
-     * is defined.
-     */
-    public String getServiceAbbreviation() {
-        return serviceAbbreviation;
     }
 
     public void setServiceAbbreviation(String serviceAbbreviation) {
@@ -509,14 +444,6 @@ public class Metadata {
     public Metadata withServiceAbbreviation(String serviceAbbreviation) {
         setServiceAbbreviation(serviceAbbreviation);
         return this;
-    }
-
-    /**
-     * Returns the full name of the service as defined in the service model;
-     * for example "Amazon Elastic Compute Cloud".
-     */
-    public String getServiceFullName() {
-        return serviceFullName;
     }
 
     public void setServiceFullName(String serviceFullName) {
@@ -532,28 +459,28 @@ public class Metadata {
      * Returns a convenient name for the service. If an abbreviated form
      * of the service name is available it will return that, otherwise it
      * will return the full service name.
-     * <p>
-     * Use me when casually referring to a service in documentation. Use
-     * {@code getServiceFullName} if you want to make sure you have the
-     * full-on official name of the service.
      */
-    public String getServiceName() {
+    public String getDescriptiveServiceName() {
         if (serviceAbbreviation != null) {
             return serviceAbbreviation;
         }
         return serviceFullName;
     }
 
-    public boolean isHasApiWithStreamInput() {
-        return hasApiWithStreamInput;
+    /**
+     * @return Unique, short name for the service. Suitable for displaying in metadata like {@link AwsErrorDetails} and
+     * for use in metrics. Should not be used in documentation, use {@link #getDescriptiveServiceName()} for that.
+     */
+    public String getServiceName() {
+        return this.serviceName;
     }
 
-    public void setHasApiWithStreamInput(boolean hasApiWithStreamInput) {
-        this.hasApiWithStreamInput = hasApiWithStreamInput;
+    public void setServiceName(String serviceName) {
+        this.serviceName = serviceName;
     }
 
-    public Metadata withHasApiWithStreamInput(boolean hasApiWithStreamInput) {
-        setHasApiWithStreamInput(hasApiWithStreamInput);
+    public Metadata withServiceName(String serviceName) {
+        setServiceName(serviceName);
         return this;
     }
 
@@ -571,19 +498,25 @@ public class Metadata {
     }
 
     public boolean isIonProtocol() {
-        return protocolMetadataProvider.isIonProtocol();
+        return protocol == Protocol.ION;
     }
 
     public boolean isCborProtocol() {
-        return protocolMetadataProvider.isCborProtocol();
+        return protocol == Protocol.CBOR;
     }
 
     public boolean isJsonProtocol() {
-        return protocolMetadataProvider.isJsonProtocol();
+        return protocol == Protocol.CBOR ||
+               protocol == Protocol.ION ||
+               protocol == Protocol.AWS_JSON ||
+               protocol == Protocol.API_GATEWAY ||
+               protocol == Protocol.REST_JSON;
     }
 
     public boolean isXmlProtocol() {
-        return protocolMetadataProvider.isXmlProtocol();
+        return protocol == Protocol.EC2 ||
+               protocol == Protocol.QUERY ||
+               protocol == Protocol.REST_XML;
     }
 
     /**
@@ -631,18 +564,7 @@ public class Metadata {
     }
 
     public String getContentType() {
-        if (contentType != null) {
-            return contentType;
-        }
-        return protocolMetadataProvider.getContentType();
-    }
-
-    public String getUnmarshallerContextClassName() {
-        return protocolMetadataProvider.getUnmarshallerContextClassName();
-    }
-
-    public String getProtocolFactory() {
-        return protocolMetadataProvider.getProtocolFactoryImplFqcn();
+        return contentType;
     }
 
     public boolean isRequiresIamSigners() {
@@ -651,10 +573,6 @@ public class Metadata {
 
     public void setRequiresIamSigners(boolean requiresIamSigners) {
         this.requiresIamSigners = requiresIamSigners;
-    }
-
-    public String getRequestBaseFqcn() {
-        return protocolMetadataProvider.getRequestBaseFqcn();
     }
 
     public boolean isRequiresApiKey() {
@@ -692,7 +610,51 @@ public class Metadata {
         return this;
     }
 
+    public String getBaseRequestName() {
+        return baseRequestName;
+    }
+
+    public Metadata withBaseRequestName(String baseRequestName) {
+        this.baseRequestName = baseRequestName;
+        return this;
+    }
+
+    public String getBaseResponseName() {
+        return baseResponseName;
+    }
+
+    public Metadata withBaseResponseName(String baseResponseName) {
+        this.baseResponseName = baseResponseName;
+        return this;
+    }
+
     private String joinPackageNames(String lhs, String rhs) {
         return StringUtils.isBlank(rhs) ? lhs : lhs + '.' + rhs;
+    }
+
+    public boolean supportsH2() {
+        return supportsH2;
+    }
+
+    public void setSupportsH2(boolean supportsH2) {
+        this.supportsH2 = supportsH2;
+    }
+
+    public Metadata withSupportsH2(boolean supportsH2) {
+        setSupportsH2(supportsH2);
+        return this;
+    }
+
+    public String getServiceId() {
+        return serviceId;
+    }
+
+    public void setServiceId(String serviceId) {
+        this.serviceId = serviceId;
+    }
+
+    public Metadata withServiceId(String serviceId) {
+        setServiceId(serviceId);
+        return this;
     }
 }

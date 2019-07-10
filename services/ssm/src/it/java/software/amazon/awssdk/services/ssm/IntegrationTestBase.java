@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 package software.amazon.awssdk.services.ssm;
 
 import org.junit.BeforeClass;
-import software.amazon.awssdk.test.AwsTestBase;
+import software.amazon.awssdk.testutils.service.AwsTestBase;
 
 public class IntegrationTestBase extends AwsTestBase {
 
-    protected static SSMClient ssm;
+    protected static SsmClient ssm;
 
     @BeforeClass
     public static void setup() throws Exception {
         setUpCredentials();
-        ssm = SSMClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
+        ssm = SsmClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
     }
 
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -20,22 +20,31 @@ import static org.junit.Assert.assertEquals;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.ByteBuffer;
 import org.junit.Test;
-import software.amazon.awssdk.Request;
-import software.amazon.awssdk.protocol.json.JsonClientMetadata;
-import software.amazon.awssdk.protocol.json.SdkJsonProtocolFactory;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.client.config.SdkClientConfiguration;
+import software.amazon.awssdk.core.client.config.SdkClientOption;
+import software.amazon.awssdk.http.SdkHttpFullRequest;
+import software.amazon.awssdk.protocols.json.AwsJsonProtocolFactory;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.transform.PutItemRequestMarshaller;
-import software.amazon.awssdk.util.ImmutableMapParameter;
 import software.amazon.awssdk.utils.BinaryUtils;
+import software.amazon.awssdk.utils.ImmutableMap;
 
 public class PutItemRequestMarshallerTest {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private final PutItemRequestMarshaller marshaller = new PutItemRequestMarshaller(
-            new SdkJsonProtocolFactory(new JsonClientMetadata().withProtocolVersion("1.0")));
+        AwsJsonProtocolFactory.builder()
+                              .clientConfiguration(
+                                  SdkClientConfiguration.builder()
+                                                        .option(SdkClientOption.ENDPOINT, URI.create("http://localhost"))
+                                                        .build())
+                              .protocolVersion("1.1")
+                              .build());
 
     /**l
      * Regression test for TT0075355961
@@ -45,9 +54,9 @@ public class PutItemRequestMarshallerTest {
         final ByteBuffer byteBuffer = ByteBuffer.wrap(new byte[] {0, 0, 0, 1, 1, 1});
         // Consume some of the byte buffer
         byteBuffer.position(3);
-        Request<PutItemRequest> marshalled = marshaller.marshall(PutItemRequest.builder().item(
-                ImmutableMapParameter.of("binaryProp", AttributeValue.builder().b(byteBuffer).build())).build());
-        JsonNode marshalledContent = MAPPER.readTree(marshalled.getContent());
+        SdkHttpFullRequest marshalled = marshaller.marshall(PutItemRequest.builder().item(
+                ImmutableMap.of("binaryProp", AttributeValue.builder().b(SdkBytes.fromByteBuffer(byteBuffer)).build())).build());
+        JsonNode marshalledContent = MAPPER.readTree(marshalled.contentStreamProvider().get().newStream());
         String base64Binary = marshalledContent.get("Item").get("binaryProp").get("B").asText();
         // Only the remaining data in the byte buffer should have been read and marshalled.
         assertEquals(BinaryUtils.toBase64(new byte[] {1, 1, 1}), base64Binary);

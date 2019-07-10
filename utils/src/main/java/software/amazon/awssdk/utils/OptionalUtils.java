@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,10 +17,12 @@ package software.amazon.awssdk.utils;
 
 import java.util.Optional;
 import java.util.function.Supplier;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
 
 /**
  * Functions that make working with optionals easier.
  */
+@SdkProtectedApi
 public final class OptionalUtils {
     /**
      * This class should be used statically.
@@ -48,5 +50,13 @@ public final class OptionalUtils {
         }
 
         return Optional.empty();
+    }
+
+    public static <T> Optional<T> firstPresent(Optional<T> firstValue, Supplier<T> fallbackValue) {
+        if (firstValue.isPresent()) {
+            return firstValue;
+        }
+
+        return Optional.ofNullable(fallbackValue.get());
     }
 }

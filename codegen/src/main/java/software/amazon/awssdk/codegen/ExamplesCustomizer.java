@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -233,18 +233,18 @@ public class ExamplesCustomizer {
             return node;
         }
 
-        final ObjectNode obj = (ObjectNode) node;
+        ObjectNode obj = (ObjectNode) node;
 
         ObjectNode modified = MAPPER.createObjectNode();
         // Filter any excluded members
-        final List<String> excludes = modifier.getExclude() != null ? modifier.getExclude() : Collections.emptyList();
+        List<String> excludes = modifier.getExclude() != null ? modifier.getExclude() : Collections.emptyList();
         obj.fieldNames().forEachRemaining(m -> {
             if (!excludes.contains(m)) {
                 modified.set(m, obj.get(m));
             }
         });
         // Apply property renames
-        final List<Map<String, ModifyModelShapeModifier>> modify = modifier.getModify() != null ? modifier.getModify()
+        List<Map<String, ModifyModelShapeModifier>> modify = modifier.getModify() != null ? modifier.getModify()
                                                                                                 : Collections.emptyList();
         modify.forEach(memberMods ->
                                memberMods.entrySet().forEach(memberMod -> {

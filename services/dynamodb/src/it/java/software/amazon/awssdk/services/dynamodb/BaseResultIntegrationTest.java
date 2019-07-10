@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,42 +15,38 @@
 
 package software.amazon.awssdk.services.dynamodb;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
-import software.amazon.awssdk.annotation.ReviewBeforeRelease;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.model.ListTablesRequest;
 import software.amazon.awssdk.services.dynamodb.model.ListTablesResponse;
-import software.amazon.awssdk.test.AwsIntegrationTestBase;
+import software.amazon.awssdk.testutils.service.AwsIntegrationTestBase;
 
 public class BaseResultIntegrationTest extends AwsIntegrationTestBase {
 
-    private DynamoDBClient dynamoDB;
+    private DynamoDbClient dynamoDB;
 
     @Before
     public void setup() {
-        dynamoDB = DynamoDBClient.builder()
+        dynamoDB = DynamoDbClient.builder()
                 .region(Region.US_WEST_2)
                 .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
                 .build();
     }
 
     @Test
-    @Ignore
-    @ReviewBeforeRelease("Response metadata has been broken by client/interface refactoring. Fix before release")
     public void responseMetadataInBaseResultIsSameAsMetadataCache() {
         ListTablesRequest request = ListTablesRequest.builder().build();
         ListTablesResponse result = dynamoDB.listTables(request);
-        //assertNotNull(result.getSdkHttpMetadata());
+        assertThat(result.sdkHttpResponse().headers()).isNotNull();
     }
 
     @Test
-    @Ignore
-    @ReviewBeforeRelease("Response metadata has been broken by client/interface refactoring. Fix before release")
     public void httpMetadataInBaseResultIsValid() {
         ListTablesResponse result = dynamoDB.listTables(ListTablesRequest.builder().build());
-        //assertEquals(200, result.getSdkHttpMetadata().getHttpStatusCode());
-        //assertThat(result.getSdkHttpMetadata().getHttpHeaders(), hasKey("x-amz-crc32"));
+        assertThat(result.sdkHttpResponse().statusCode()).isEqualTo(200);
+        assertThat(result.sdkHttpResponse().headers()).containsKey("x-amz-crc32");
     }
 }

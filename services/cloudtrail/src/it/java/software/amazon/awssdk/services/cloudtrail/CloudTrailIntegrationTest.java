@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static software.amazon.awssdk.testutils.service.S3BucketUtils.temporaryBucketName;
 
 import java.io.IOException;
 import java.util.Iterator;
@@ -49,8 +50,7 @@ import software.amazon.awssdk.services.s3.model.PutBucketPolicyRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
 public class CloudTrailIntegrationTest extends IntegrationTestBase {
-    private static final String BUCKET_NAME =
-            "aws-java-cloudtrail-integ-" + System.currentTimeMillis();
+    private static final String BUCKET_NAME = temporaryBucketName("aws-java-cloudtrail-integ");
     private static final String TRAIL_NAME = "aws-java-trail-" + System.currentTimeMillis();
     /**
      * Path to the sample policy for this test
@@ -64,7 +64,7 @@ public class CloudTrailIntegrationTest extends IntegrationTestBase {
                                            .bucket(BUCKET_NAME)
                                            .createBucketConfiguration(
                                                    CreateBucketConfiguration.builder()
-                                                                            .locationConstraint(region.value())
+                                                                            .locationConstraint(region.id())
                                                                             .build())
                                            .build());
     }

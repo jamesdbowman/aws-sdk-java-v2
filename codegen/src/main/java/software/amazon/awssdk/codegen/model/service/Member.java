@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 
 package software.amazon.awssdk.codegen.model.service;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class Member {
 
     private String shape;
@@ -27,6 +29,8 @@ public class Member {
 
     private boolean streaming;
 
+    private boolean requiresLength;
+
     private String documentation;
 
     private String queryName;
@@ -38,6 +42,22 @@ public class Member {
     private boolean idempotencyToken;
 
     private boolean deprecated;
+
+    @JsonProperty("jsonvalue")
+    private boolean jsonValue;
+
+    private String timestampFormat;
+
+    @JsonProperty(value = "eventpayload")
+    private boolean eventPayload;
+
+    @JsonProperty(value = "eventheader")
+    private boolean eventHeader;
+
+    @JsonProperty(value = "endpointdiscoveryid")
+    private boolean endpointDiscoveryId;
+
+    private boolean sensitive;
 
     public String getShape() {
         return shape;
@@ -77,6 +97,14 @@ public class Member {
 
     public void setStreaming(boolean streaming) {
         this.streaming = streaming;
+    }
+
+    public boolean isRequiresLength() {
+        return requiresLength;
+    }
+
+    public void setRequiresLength(boolean requiresLength) {
+        this.requiresLength = requiresLength;
     }
 
     public String getDocumentation() {
@@ -125,5 +153,53 @@ public class Member {
 
     public void setDeprecated(boolean deprecated) {
         this.deprecated = deprecated;
+    }
+
+    public boolean getJsonValue() {
+        return jsonValue;
+    }
+
+    public void setJsonValue(boolean jsonValue) {
+        this.jsonValue = jsonValue;
+    }
+
+    public String getTimestampFormat() {
+        return timestampFormat;
+    }
+
+    public void setTimestampFormat(String timestampFormat) {
+        this.timestampFormat = timestampFormat;
+    }
+
+    public boolean isEventPayload() {
+        return eventPayload;
+    }
+
+    public void setEventPayload(boolean eventPayload) {
+        this.eventPayload = eventPayload;
+    }
+
+    public boolean isEventHeader() {
+        return eventHeader;
+    }
+
+    public void setEventHeader(boolean eventHeader) {
+        this.eventHeader = eventHeader;
+    }
+
+    public boolean isEndpointDiscoveryId() {
+        return endpointDiscoveryId;
+    }
+
+    public void setEndpointDiscoveryId(boolean endpointDiscoveryId) {
+        this.endpointDiscoveryId = endpointDiscoveryId;
+    }
+
+    public boolean isSensitive() {
+        return sensitive;
+    }
+
+    public void setSensitive(boolean sensitive) {
+        this.sensitive = sensitive;
     }
 }

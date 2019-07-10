@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,10 +16,16 @@
 package software.amazon.awssdk.codegen.poet.model;
 
 import com.squareup.javapoet.ClassName;
+import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
+import java.util.List;
+import java.util.Objects;
 import javax.lang.model.element.Modifier;
+import software.amazon.awssdk.codegen.model.intermediate.MemberModel;
 import software.amazon.awssdk.codegen.model.intermediate.ShapeModel;
+import software.amazon.awssdk.codegen.poet.PoetCollectors;
 import software.amazon.awssdk.codegen.poet.PoetExtensions;
+import software.amazon.awssdk.utils.ToString;
 
 /**
  * Creates the method specs for common method overrides for service models.
@@ -55,45 +61,51 @@ public class ModelMethodOverrides {
             methodBuilder.addStatement("$T other = ($T) obj", className, className);
         }
 
-        shapeModel.getNonStreamingMembers().forEach(m -> {
-            String getterName = m.getFluentGetterMethodName();
-            methodBuilder.beginControlFlow("if (other.$N() == null ^ this.$N() == null)", getterName, getterName)
-                         .addStatement("return false")
-                         .endControlFlow()
+        List<MemberModel> memberModels = shapeModel.getNonStreamingMembers();
+        CodeBlock.Builder memberEqualsStmt = CodeBlock.builder();
+        if (memberModels.isEmpty()) {
+            memberEqualsStmt.addStatement("return true");
+        } else {
+            memberEqualsStmt.add("return ");
+            memberEqualsStmt.add(memberModels.stream().map(m -> {
+                String getterName = m.getFluentGetterMethodName();
+                return CodeBlock.builder().add("$T.equals($N(), other.$N())", Objects.class, getterName, getterName).build();
+            }).collect(PoetCollectors.toDelimitedCodeBlock("&&")));
+            memberEqualsStmt.add(";");
+        }
 
-                         .beginControlFlow("if (other.$N() != null && !other.$N().equals(this.$N()))", getterName, getterName,
-                                           getterName)
-                         .addStatement("return false")
-                         .endControlFlow();
-        });
-
-        methodBuilder.addStatement("return true");
-
-        return methodBuilder.build();
+        return methodBuilder.addCode(memberEqualsStmt.build()).build();
     }
 
     public MethodSpec toStringMethod(ShapeModel shapeModel) {
-        MethodSpec.Builder toStringMethodBuilder = MethodSpec.methodBuilder("toString")
-                                                             .returns(String.class)
-                                                             .addAnnotation(Override.class)
-                                                             .addModifiers(Modifier.PUBLIC)
-                                                             .addStatement("$T sb = new $T()", StringBuilder.class,
-                                                                           StringBuilder.class)
-                                                             .addStatement("sb.append(\"{\")");
+        String javadoc = "Returns a string representation of this object. This is useful for testing and " +
+                         "debugging. Sensitive data will be redacted from this string using a placeholder " +
+                         "value. ";
 
+        MethodSpec.Builder toStringMethod = MethodSpec.methodBuilder("toString")
+                                                      .returns(String.class)
+                                                      .addAnnotation(Override.class)
+                                                      .addModifiers(Modifier.PUBLIC)
+                                                      .addJavadoc(javadoc);
+
+        toStringMethod.addCode("return $T.builder($S)", ToString.class, shapeModel.getShapeName());
         shapeModel.getNonStreamingMembers()
-                  .forEach(m -> {
-                      String getterName = m.getFluentGetterMethodName();
-                      toStringMethodBuilder.beginControlFlow("if ($N() != null)", getterName)
-                                           .addStatement("sb.append(\"$N: \").append($N()).append(\",\")", m.getName(),
-                                                         getterName)
-                                           .endControlFlow();
-                  });
+                  .forEach(m -> toStringMethod.addCode(".add($S, ", m.getName())
+                                              .addCode(toStringValue(m))
+                                              .addCode(")"));
+        toStringMethod.addCode(".build();");
 
-        toStringMethodBuilder.addStatement("sb.append(\"}\")");
-        toStringMethodBuilder.addStatement("return sb.toString()");
+        return toStringMethod.build();
+    }
 
-        return toStringMethodBuilder.build();
+    public CodeBlock toStringValue(MemberModel member) {
+        if (!member.isSensitive()) {
+            return CodeBlock.of("$L()", member.getFluentGetterMethodName());
+        }
+
+        return CodeBlock.of("$L() == null ? null : $S",
+                            member.getFluentGetterMethodName(),
+                            "*** Sensitive Data Redacted ***");
     }
 
     public MethodSpec hashCodeMethod(ShapeModel shapeModel) {
@@ -105,8 +117,8 @@ public class ModelMethodOverrides {
 
         shapeModel.getNonStreamingMembers()
                   .forEach(m -> methodBuilder.addStatement(
-                          "hashCode = 31 * hashCode + (($N() == null)? 0 : $N().hashCode())",
-                          m.getFluentGetterMethodName(),
+                          "hashCode = 31 * hashCode + $T.hashCode($N())",
+                          Objects.class,
                           m.getFluentGetterMethodName()));
 
         methodBuilder.addStatement("return hashCode");

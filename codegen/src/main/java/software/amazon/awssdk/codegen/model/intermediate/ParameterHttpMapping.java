@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 package software.amazon.awssdk.codegen.model.intermediate;
 
 import software.amazon.awssdk.codegen.model.service.Location;
-import software.amazon.awssdk.protocol.MarshallLocation;
+import software.amazon.awssdk.core.protocol.MarshallLocation;
 
 public class ParameterHttpMapping {
 
@@ -31,6 +31,7 @@ public class ParameterHttpMapping {
     private Location location;
     private boolean flattened;
     private boolean isGreedy;
+    private boolean requiresLength;
 
     public boolean getIsPayload() {
         return isPayload;
@@ -166,6 +167,19 @@ public class ParameterHttpMapping {
         return this;
     }
 
+    public boolean isRequiresLength() {
+        return requiresLength;
+    }
+
+    public void setRequiresLength(boolean requiresLength) {
+        this.requiresLength = requiresLength;
+    }
+
+    public ParameterHttpMapping withRequiresLength(boolean requiresLength) {
+        setRequiresLength(requiresLength);
+        return this;
+    }
+
     public MarshallLocation getMarshallLocation() {
         if (location == null) {
             return MarshallLocation.PAYLOAD;
@@ -173,6 +187,8 @@ public class ParameterHttpMapping {
         switch (location) {
             default:
                 return MarshallLocation.PAYLOAD;
+            case STATUS_CODE:
+                return MarshallLocation.STATUS_CODE;
             case HEADER:
             case HEADERS:
                 return MarshallLocation.HEADER;

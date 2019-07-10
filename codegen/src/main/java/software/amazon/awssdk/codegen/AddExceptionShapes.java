@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,15 +16,13 @@
 package software.amazon.awssdk.codegen;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import software.amazon.awssdk.codegen.internal.Utils;
 import software.amazon.awssdk.codegen.model.intermediate.OperationModel;
 import software.amazon.awssdk.codegen.model.intermediate.ShapeModel;
 import software.amazon.awssdk.codegen.model.intermediate.ShapeType;
-import software.amazon.awssdk.codegen.model.service.ErrorMap;
 import software.amazon.awssdk.codegen.model.service.ErrorTrait;
-import software.amazon.awssdk.codegen.model.service.Operation;
+import software.amazon.awssdk.codegen.model.service.Shape;
 
 /**
  * Constructs the exception shapes for the intermediate model. Analyzes the operations in the
@@ -44,30 +42,24 @@ final class AddExceptionShapes extends AddShapes implements IntermediateModelSha
 
     private Map<String, ShapeModel> constructExceptionShapes() {
         // Java shape models, to be constructed
-        final Map<String, ShapeModel> javaShapes = new HashMap<String, ShapeModel>();
+        Map<String, ShapeModel> javaShapes = new HashMap<String, ShapeModel>();
 
-        for (Map.Entry<String, Operation> entry : getServiceModel().getOperations().entrySet()) {
+        for (Map.Entry<String, Shape> shape : getServiceModel().getShapes().entrySet()) {
+            if (shape.getValue().isException()) {
+                String errorShapeName = shape.getKey();
+                String javaClassName = getNamingStrategy().getExceptionName(errorShapeName);
 
-            Operation operation = entry.getValue();
-            List<ErrorMap> operationErrors = operation.getErrors();
+                ShapeModel exceptionShapeModel = generateShapeModel(javaClassName,
+                                                                    errorShapeName);
 
-            if (operationErrors != null) {
-                for (ErrorMap error : operationErrors) {
-
-                    String errorShapeName = error.getShape();
-                    String javaClassName = getNamingStrategy().getExceptionName(errorShapeName);
-
-                    ShapeModel exceptionShapeModel = generateShapeModel(javaClassName,
-                                                                        errorShapeName);
-
-                    exceptionShapeModel.setType(ShapeType.Exception.getValue());
-                    exceptionShapeModel.setErrorCode(getErrorCode(errorShapeName));
-                    if (exceptionShapeModel.getDocumentation() == null) {
-                        exceptionShapeModel.setDocumentation(error.getDocumentation());
-                    }
-
-                    javaShapes.put(javaClassName, exceptionShapeModel);
+                exceptionShapeModel.setType(ShapeType.Exception.getValue());
+                exceptionShapeModel.setErrorCode(getErrorCode(errorShapeName));
+                exceptionShapeModel.setHttpStatusCode(getHttpStatusCode(errorShapeName));
+                if (exceptionShapeModel.getDocumentation() == null) {
+                    exceptionShapeModel.setDocumentation(shape.getValue().getDocumentation());
                 }
+
+                javaShapes.put(javaClassName, exceptionShapeModel);
             }
         }
 
@@ -90,5 +82,10 @@ final class AddExceptionShapes extends AddShapes implements IntermediateModelSha
 
     private boolean isErrorCodeOverridden(ErrorTrait errorTrait) {
         return errorTrait != null && !Utils.isNullOrEmpty(errorTrait.getErrorCode());
+    }
+
+    private Integer getHttpStatusCode(String errorShapeName) {
+        ErrorTrait errorTrait = getServiceModel().getShapes().get(errorShapeName).getErrorTrait();
+        return errorTrait != null ? errorTrait.getHttpStatusCode() : null;
     }
 }

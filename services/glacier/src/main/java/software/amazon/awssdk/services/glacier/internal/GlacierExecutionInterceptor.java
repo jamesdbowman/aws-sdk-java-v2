@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,40 +15,43 @@
 
 package software.amazon.awssdk.services.glacier.internal;
 
-import software.amazon.awssdk.http.SdkHttpFullRequest;
-import software.amazon.awssdk.interceptor.Context;
-import software.amazon.awssdk.interceptor.ExecutionAttributes;
-import software.amazon.awssdk.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.core.interceptor.Context;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.http.SdkHttpRequest;
 import software.amazon.awssdk.services.glacier.model.DescribeJobRequest;
 import software.amazon.awssdk.services.glacier.model.GetJobOutputRequest;
 import software.amazon.awssdk.services.glacier.model.UploadMultipartPartRequest;
 
-public class GlacierExecutionInterceptor implements ExecutionInterceptor {
+@SdkInternalApi
+public final class GlacierExecutionInterceptor implements ExecutionInterceptor {
 
     @Override
-    public SdkHttpFullRequest modifyHttpRequest(Context.ModifyHttpRequest context, ExecutionAttributes executionAttributes) {
-        SdkHttpFullRequest request = context.httpRequest();
+    public SdkHttpRequest modifyHttpRequest(Context.ModifyHttpRequest context, ExecutionAttributes executionAttributes) {
+        SdkHttpRequest request = context.httpRequest();
         Object originalRequest = context.request();
         return request.toBuilder()
-                      .apply(b -> beforeRequest(originalRequest, b))
+                      .applyMutation(b -> beforeRequest(originalRequest, b))
                       .build();
     }
 
-    private SdkHttpFullRequest.Builder beforeRequest(Object originalRequest, SdkHttpFullRequest.Builder mutableRequest) {
-        mutableRequest.header("x-amz-glacier-version", "2012-06-01");
+    private SdkHttpRequest.Builder beforeRequest(Object originalRequest, SdkHttpRequest.Builder mutableRequest) {
+        mutableRequest.putHeader("x-amz-glacier-version", "2012-06-01");
 
         //  "x-amz-content-sha256" header is required for sig v4 for some streaming operations
-        mutableRequest.header("x-amz-content-sha256", "required");
+        mutableRequest.putHeader("x-amz-content-sha256", "required");
 
         if (originalRequest instanceof UploadMultipartPartRequest) {
-            mutableRequest.getFirstHeaderValue("Content-Range").ifPresent(range -> mutableRequest
-                    .header("Content-Length", Long.toString(parseContentLengthFromRange(range))));
+            mutableRequest.firstMatchingHeader("Content-Range")
+                          .ifPresent(range -> mutableRequest.putHeader("Content-Length",
+                                                                       Long.toString(parseContentLengthFromRange(range))));
 
         } else if (originalRequest instanceof GetJobOutputRequest || originalRequest instanceof DescribeJobRequest) {
-            String resourcePath = mutableRequest.getResourcePath();
+            String resourcePath = mutableRequest.encodedPath();
             if (resourcePath != null) {
                 String newResourcePath = resourcePath.replace("{jobType}", "archive-retrievals");
-                mutableRequest.resourcePath(newResourcePath);
+                mutableRequest.encodedPath(newResourcePath);
             }
         }
         return mutableRequest;

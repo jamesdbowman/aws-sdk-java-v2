@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -27,23 +27,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.BeforeClass;
-import software.amazon.awssdk.auth.StaticCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sns.model.Subscription;
 import software.amazon.awssdk.services.sns.model.Topic;
-import software.amazon.awssdk.services.sqs.SQSClient;
-import software.amazon.awssdk.test.AwsIntegrationTestBase;
+import software.amazon.awssdk.services.sqs.SqsClient;
+import software.amazon.awssdk.testutils.service.AwsIntegrationTestBase;
 
 /**
  * Base class for SNS integration tests; responsible for loading AWS account info for running the
  * tests, and instantiating clients, etc.
- *
- * @author fulghum@amazon.com
  */
 public abstract class IntegrationTestBase extends AwsIntegrationTestBase {
 
-    protected static SNSClient sns;
-    protected static SQSClient sqs;
+    protected static SnsClient sns;
+    protected static SqsClient sqs;
 
     /**
      * Loads the AWS account info for the integration tests and creates SNS and SQS clients for
@@ -51,13 +49,13 @@ public abstract class IntegrationTestBase extends AwsIntegrationTestBase {
      */
     @BeforeClass
     public static void setUp() throws FileNotFoundException, IOException {
-        sns = SNSClient.builder()
-                .credentialsProvider(new StaticCredentialsProvider(getCredentials()))
+        sns = SnsClient.builder()
+                .credentialsProvider(StaticCredentialsProvider.create(getCredentials()))
                 .region(Region.US_WEST_2)
                 .build();
 
-        sqs = SQSClient.builder()
-                .credentialsProvider(new StaticCredentialsProvider(getCredentials()))
+        sqs = SqsClient.builder()
+                .credentialsProvider(StaticCredentialsProvider.create(getCredentials()))
                 .region(Region.US_WEST_2)
                 .build();
     }

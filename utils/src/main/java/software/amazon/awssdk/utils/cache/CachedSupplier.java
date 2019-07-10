@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
-import software.amazon.awssdk.annotation.ReviewBeforeRelease;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
 import software.amazon.awssdk.utils.SdkAutoCloseable;
 import software.amazon.awssdk.utils.Validate;
 
@@ -35,6 +35,7 @@ import software.amazon.awssdk.utils.Validate;
  *
  * This should be created using {@link #builder(Supplier)}.
  */
+@SdkProtectedApi
 public final class CachedSupplier<T> implements Supplier<T>, SdkAutoCloseable {
     /**
      * Maximum time to wait for a blocking refresh lock before calling refresh again. This is to rate limit how many times we call
@@ -140,7 +141,6 @@ public final class CachedSupplier<T> implements Supplier<T>, SdkAutoCloseable {
         }
     }
 
-    @ReviewBeforeRelease("Should this throw a different exception, like AbortedException, from the core?")
     private void handleInterruptedException(String message, InterruptedException cause) {
         Thread.currentThread().interrupt();
         throw new IllegalStateException(message, cause);

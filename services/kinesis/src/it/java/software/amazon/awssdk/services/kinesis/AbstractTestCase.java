@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -21,12 +21,13 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.Properties;
 import org.junit.BeforeClass;
+import software.amazon.awssdk.awscore.util.AwsHostNameUtils;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.test.AwsTestBase;
-import software.amazon.awssdk.util.AwsHostNameUtils;
+import software.amazon.awssdk.testutils.service.AwsTestBase;
 
 public class AbstractTestCase extends AwsTestBase {
     protected static KinesisClient client;
+    protected static KinesisAsyncClient asyncClient;
 
     @BeforeClass
     public static void init() throws IOException {
@@ -34,6 +35,7 @@ public class AbstractTestCase extends AwsTestBase {
         KinesisClientBuilder builder = KinesisClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN);
         setEndpoint(builder);
         client = builder.build();
+        asyncClient = KinesisAsyncClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
     }
 
     private static void setEndpoint(KinesisClientBuilder builder) throws IOException {
@@ -49,7 +51,9 @@ public class AbstractTestCase extends AwsTestBase {
             String endpoint = properties.getProperty("kinesis.endpoint");
 
             if (endpoint != null) {
-                Region region = Region.of(AwsHostNameUtils.parseRegion(endpoint, "kinesis"));
+                Region region = AwsHostNameUtils.parseSigningRegion(endpoint, "kinesis")
+                                                .orElseThrow(() -> new IllegalArgumentException("Unknown region for endpoint. " +
+                                                                                                endpoint));
                 builder.region(region)
                        .endpointOverride(URI.create(endpoint));
             }

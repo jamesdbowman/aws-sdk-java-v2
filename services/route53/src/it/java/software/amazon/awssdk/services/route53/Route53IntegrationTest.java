@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -24,8 +24,9 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.AfterClass;
 import org.junit.Test;
-import software.amazon.awssdk.AmazonServiceException;
-import software.amazon.awssdk.SdkGlobalTime;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.SdkGlobalTime;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.route53.model.Change;
 import software.amazon.awssdk.services.route53.model.ChangeAction;
@@ -145,10 +146,9 @@ public class Route53IntegrationTest extends IntegrationTestBase {
         try {
             gealthCheckResult = route53.getHealthCheck(GetHealthCheckRequest.builder().healthCheckId(healthCheckId).build());
             fail();
-        } catch (AmazonServiceException e) {
+        } catch (AwsServiceException e) {
             assertNotNull(e.getMessage());
-            assertNotNull(e.getErrorCode());
-            assertNotNull(e.getErrorType());
+            assertNotNull(e.awsErrorDetails().errorCode());
         }
 
         // List Hosted Zones
@@ -279,7 +279,7 @@ public class Route53IntegrationTest extends IntegrationTestBase {
         assertNotNull(CALLER_REFERENCE, healthCheck.callerReference());
         assertNotNull(healthCheck.id());
         assertEquals(PORT_NUM, healthCheck.healthCheckConfig().port().intValue());
-        assertEquals(TYPE, healthCheck.healthCheckConfig().type());
+        assertEquals(TYPE, healthCheck.healthCheckConfig().typeAsString());
         assertEquals(IP_ADDRESS, healthCheck.healthCheckConfig().ipAddress());
     }
 
@@ -289,7 +289,7 @@ public class Route53IntegrationTest extends IntegrationTestBase {
      * update.
      */
     @Test
-    public void testClockSkew() throws AmazonServiceException {
+    public void testClockSkew() throws SdkServiceException {
         SdkGlobalTime.setGlobalTimeOffset(3600);
         Route53Client clockSkewClient = Route53Client.builder()
                 .region(Region.AWS_GLOBAL)

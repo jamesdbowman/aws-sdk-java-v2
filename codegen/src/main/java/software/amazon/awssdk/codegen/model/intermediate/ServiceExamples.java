@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -22,11 +22,10 @@ import java.util.List;
 import java.util.Map;
 
 public class ServiceExamples {
-
     /**
      * Empty examples object when examples aren't present or aren't applicable.
      */
-    public static final ServiceExamples NONE = new ServiceExamples(Collections.emptyMap(), null);
+    private static final ServiceExamples NONE = new ServiceExamples(Collections.emptyMap(), null);
 
     @JsonProperty(value = "examples")
     private final Map<String, List<Example>> operationExamples;
@@ -39,6 +38,10 @@ public class ServiceExamples {
         this.operationExamples = examples == null
                                  ? Collections.emptyMap() : examples;
         this.version = version;
+    }
+
+    public static ServiceExamples none() {
+        return NONE;
     }
 
     public Map<String, List<Example>> getOperationExamples() {

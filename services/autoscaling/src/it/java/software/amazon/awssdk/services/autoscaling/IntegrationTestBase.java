@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,19 +17,15 @@ package software.amazon.awssdk.services.autoscaling;
 
 import java.io.IOException;
 import org.junit.BeforeClass;
-import software.amazon.awssdk.auth.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.autoscaling.model.CreateAutoScalingGroupRequest;
 import software.amazon.awssdk.services.autoscaling.model.CreateLaunchConfigurationRequest;
-import software.amazon.awssdk.services.sns.SNSClient;
-import software.amazon.awssdk.test.AwsTestBase;
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.testutils.service.AwsTestBase;
 
 /**
  * Base class for AutoScaling integration tests. Provides several convenience methods for creating
  * test data, test data values, and automatically loads the AWS credentials from a properties file
  * on disk and instantiates clients for the test subclasses to use.
- *
- * @author Jason Fulghum fulghum@amazon.com
  */
 public abstract class IntegrationTestBase extends AwsTestBase {
 
@@ -49,7 +45,7 @@ public abstract class IntegrationTestBase extends AwsTestBase {
     /** Shared Autoscaling async client for tests to use. */
     protected static AutoScalingAsyncClient autoscalingAsync;
     /** Shared SNS client for tests to use. */
-    protected static SNSClient sns;
+    protected static SnsClient sns;
 
     /**
      * Loads the AWS account info for the integration tests and creates an AutoScaling client for
@@ -59,15 +55,15 @@ public abstract class IntegrationTestBase extends AwsTestBase {
     public static void setUp() throws IOException {
         setUpCredentials();
         autoscaling = AutoScalingClient.builder()
-                .credentialsProvider(new StaticCredentialsProvider(credentials))
+                .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
                 .region(REGION)
                 .build();
         autoscalingAsync = AutoScalingAsyncClient.builder()
-                .credentialsProvider(new StaticCredentialsProvider(credentials))
+                .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
                 .region(REGION)
                 .build();
-        sns = SNSClient.builder()
-                .credentialsProvider(new StaticCredentialsProvider(credentials))
+        sns = SnsClient.builder()
+                .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
                 .region(REGION)
                 .build();
     }
@@ -87,20 +83,4 @@ public abstract class IntegrationTestBase extends AwsTestBase {
                 .launchConfigurationName(name).imageId(AMI_ID).instanceType(INSTANCE_TYPE).build();
         autoscaling.createLaunchConfiguration(createRequest);
     }
-
-    /**
-     * Creates an autoscaling group with the specified name and specified launch configuration.
-     *
-     * @param name
-     *            The name of the autoscaling group to create.
-     * @param launchConfigurationName
-     *            The name of an existing launch configuration to use in the new autoscaling group.
-     */
-    protected void createAutoscalingGroup(String name, String launchConfigurationName) {
-        CreateAutoScalingGroupRequest createRequest = CreateAutoScalingGroupRequest.builder()
-                .autoScalingGroupName(name).launchConfigurationName(launchConfigurationName)
-                .availabilityZones(AVAILABILITY_ZONE).maxSize(2).minSize(1).build();
-        autoscaling.createAutoScalingGroup(createRequest);
-    }
-
 }

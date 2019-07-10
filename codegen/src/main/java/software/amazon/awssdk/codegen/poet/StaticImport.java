@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -30,11 +30,11 @@ public interface StaticImport {
     ClassName className();
 
     /**
-     * The members to import from the class for example if memberNames() returned List("trim", "isNullOrEmpty") for
+     * The members to import from the class for example if memberNames() returned List("trim", "isBlank") for
      * StringUtils.class then the following static imports would be generated:
      *
-     * import static software.amazon.awssdk.util.StringUtils.trim;
-     * import static software.amazon.awssdk.util.StringUtils.isNullOrEmpty;
+     * import static software.amazon.awssdk.utils.StringUtils.trim;
+     * import static software.amazon.awssdk.utils.StringUtils.isBlank;
      *
      * @return The members to import from the class representation
      */
@@ -46,7 +46,7 @@ public interface StaticImport {
      * @param members the members from that class to import, if none then * is assumed
      * @return an anonymous implementation of {@link StaticImport}
      */
-    static StaticImport staticMethodImport(Class<?> clz, String...members) {
+    static StaticImport staticMethodImport(Class<?> clz, String... members) {
         return new StaticImport() {
             @Override
             public ClassName className() {

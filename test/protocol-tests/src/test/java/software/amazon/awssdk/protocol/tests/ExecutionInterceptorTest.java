@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -22,9 +22,12 @@ import static com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.verify;
+import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.assertj.core.api.Assertions.in;
 import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.isA;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -36,6 +39,7 @@ import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -44,23 +48,26 @@ import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
-import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
-import software.amazon.awssdk.AmazonServiceException;
-import software.amazon.awssdk.SdkRequest;
-import software.amazon.awssdk.SdkResponse;
-import software.amazon.awssdk.async.AsyncRequestProvider;
-import software.amazon.awssdk.async.AsyncResponseHandler;
-import software.amazon.awssdk.auth.AwsCredentials;
-import software.amazon.awssdk.auth.StaticCredentialsProvider;
-import software.amazon.awssdk.client.builder.ClientBuilder;
-import software.amazon.awssdk.config.ClientOverrideConfiguration;
-import software.amazon.awssdk.http.SdkHttpFullRequest;
-import software.amazon.awssdk.http.SdkHttpFullResponse;
-import software.amazon.awssdk.interceptor.Context;
-import software.amazon.awssdk.interceptor.ExecutionAttributes;
-import software.amazon.awssdk.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder;
+import software.amazon.awssdk.core.SdkRequest;
+import software.amazon.awssdk.core.SdkResponse;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.core.async.AsyncResponseTransformer;
+import software.amazon.awssdk.core.async.SdkPublisher;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.exception.SdkServiceException;
+import software.amazon.awssdk.core.interceptor.Context;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.http.Header;
+import software.amazon.awssdk.http.SdkHttpRequest;
+import software.amazon.awssdk.http.SdkHttpResponse;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.protocolrestjson.ProtocolRestJsonAsyncClient;
 import software.amazon.awssdk.services.protocolrestjson.ProtocolRestJsonClient;
@@ -69,14 +76,13 @@ import software.amazon.awssdk.services.protocolrestjson.model.MembersInHeadersRe
 import software.amazon.awssdk.services.protocolrestjson.model.StreamingInputOperationRequest;
 import software.amazon.awssdk.services.protocolrestjson.model.StreamingOutputOperationRequest;
 import software.amazon.awssdk.services.protocolrestjson.model.StreamingOutputOperationResponse;
-import software.amazon.awssdk.sync.RequestBody;
 
 /**
  * Verify that request handler hooks are behaving as expected.
  */
 public class ExecutionInterceptorTest {
     @Rule
-    public WireMockRule wireMock = new WireMockRule(0);
+    public WireMockRule wireMock = new WireMockRule(wireMockConfig().port(0), false);
 
     private static final String MEMBERS_IN_HEADERS_PATH = "/2016-03-11/membersInHeaders";
     private static final String STREAMING_INPUT_PATH = "/2016-03-11/streamingInputOperation";
@@ -94,7 +100,7 @@ public class ExecutionInterceptorTest {
         MembersInHeadersResponse result = client.membersInHeaders(request);
 
         // Expect
-        expectAllMethodsCalled(interceptor, request, null);
+        expectAllMethodsCalled(interceptor, request, null, false);
         validateRequestResponse(result);
     }
 
@@ -111,7 +117,7 @@ public class ExecutionInterceptorTest {
         MembersInHeadersResponse result = client.membersInHeaders(request).get(10, TimeUnit.SECONDS);
 
         // Expect
-        expectAllMethodsCalled(interceptor, request, null);
+        expectAllMethodsCalled(interceptor, request, null, true);
         validateRequestResponse(result);
     }
 
@@ -124,12 +130,13 @@ public class ExecutionInterceptorTest {
         stubFor(post(urlPathEqualTo(STREAMING_INPUT_PATH)).willReturn(aResponse().withStatus(200).withBody("")));
 
         // When
-        client.streamingInputOperation(request, RequestBody.of(new byte[] {0}));
+        client.streamingInputOperation(request, RequestBody.fromBytes(new byte[] {0}));
 
         // Expect
-        Context.BeforeTransmission beforeTransmissionArg = captureBeforeTransmissionArg(interceptor);
-        beforeTransmissionArg.httpRequest().getContent().reset();
-        assertThat(beforeTransmissionArg.httpRequest().getContent().read()).isEqualTo(0);
+        Context.BeforeTransmission beforeTransmissionArg = captureBeforeTransmissionArg(interceptor, false);
+        assertThat(beforeTransmissionArg.requestBody().get().contentStreamProvider().newStream().read()).isEqualTo(0);
+        assertThat(beforeTransmissionArg.httpRequest().firstMatchingHeader(Header.CONTENT_LENGTH).get())
+            .contains(Long.toString(1L));
     }
 
     @Test
@@ -142,17 +149,18 @@ public class ExecutionInterceptorTest {
         stubFor(post(urlPathEqualTo(STREAMING_INPUT_PATH)).willReturn(aResponse().withStatus(200).withBody("")));
 
         // When
-        client.streamingInputOperation(request, new NoOpRequestProvider()).get(10, TimeUnit.SECONDS);
+        client.streamingInputOperation(request, new NoOpAsyncRequestBody()).get(10, TimeUnit.SECONDS);
 
         // Expect
-        Context.BeforeTransmission beforeTransmissionArg = captureBeforeTransmissionArg(interceptor);
-        beforeTransmissionArg.httpRequest().getContent().reset();
+        Context.BeforeTransmission beforeTransmissionArg = captureBeforeTransmissionArg(interceptor, true);
 
-        // TODO: The content should actually be null to match responses. We can fix this by updating the StructuredJsonGenerator
+        // TODO: The content should actually be empty to match responses. We can fix this by updating the StructuredJsonGenerator
         // to use null for NO-OP marshalling of payloads. This will break streaming POST operations for JSON because of a hack in
         // the MoveParametersToBodyStage, but we can move the logic from there into the query marshallers (why the hack exists)
         // and then everything should be good for JSON.
-        assertThat(beforeTransmissionArg.httpRequest().getContent().read()).isEqualTo(-1);
+        assertThat(beforeTransmissionArg.requestBody().get().contentStreamProvider().newStream().read()).isEqualTo(-1);
+        assertThat(beforeTransmissionArg.httpRequest().firstMatchingHeader(Header.CONTENT_LENGTH).get())
+            .contains(Long.toString(0L));
     }
 
     @Test
@@ -174,7 +182,7 @@ public class ExecutionInterceptorTest {
         // Expect
         Context.AfterTransmission afterTransmissionArg = captureAfterTransmissionArg(interceptor);
         // TODO: When we don't always close the input stream, make sure we can read the service's '0' response.
-        assertThat(afterTransmissionArg.httpResponse().getContent()).isNotNull();
+        assertThat(afterTransmissionArg.responseBody() != null);
     }
 
     @Test
@@ -187,11 +195,11 @@ public class ExecutionInterceptorTest {
         stubFor(post(urlPathEqualTo(STREAMING_OUTPUT_PATH)).willReturn(aResponse().withStatus(200).withBody("\0")));
 
         // When
-        client.streamingOutputOperation(request, new NoOpResponseHandler()).get(10, TimeUnit.SECONDS);
+        client.streamingOutputOperation(request, new NoOpAsyncResponseTransformer()).get(10, TimeUnit.SECONDS);
 
         // Expect
-        Context.AfterTransmission afterTransmissionArg = captureAfterTransmissionArg(interceptor);
-        assertThat(afterTransmissionArg.httpResponse().getContent()).isNull();
+        Context.AfterTransmission afterTransmissionArg = captureAfterTransmissionArgAsync(interceptor);
+        assertThat(afterTransmissionArg.responseBody()).isNotNull();
     }
 
     @Test
@@ -202,10 +210,10 @@ public class ExecutionInterceptorTest {
         MembersInHeadersRequest request = MembersInHeadersRequest.builder().build();
 
         // When
-        assertThatExceptionOfType(AmazonServiceException.class).isThrownBy(() -> client.membersInHeaders(request));
+        assertThatExceptionOfType(SdkServiceException.class).isThrownBy(() -> client.membersInHeaders(request));
 
         // Expect
-        expectServiceCallErrorMethodsCalled(interceptor);
+        expectServiceCallErrorMethodsCalled(interceptor, false);
     }
 
     @Test
@@ -217,10 +225,10 @@ public class ExecutionInterceptorTest {
 
         // When
         assertThatExceptionOfType(ExecutionException.class).isThrownBy(() -> client.membersInHeaders(request).get())
-                                                           .withCauseInstanceOf(AmazonServiceException.class);
+                                                           .withCauseInstanceOf(SdkServiceException.class);
 
         // Expect
-        expectServiceCallErrorMethodsCalled(interceptor);
+        expectServiceCallErrorMethodsCalled(interceptor, true);
     }
 
     @Test
@@ -238,7 +246,7 @@ public class ExecutionInterceptorTest {
         assertThatExceptionOfType(RuntimeException.class).isThrownBy(() -> client.membersInHeaders(request));
 
         // Expect
-        expectAllMethodsCalled(interceptor, request, exception);
+        expectAllMethodsCalled(interceptor, request, exception, false);
     }
 
     @Test
@@ -254,13 +262,15 @@ public class ExecutionInterceptorTest {
 
         // When
         assertThatExceptionOfType(ExecutionException.class).isThrownBy(() -> client.membersInHeaders(request).get())
-                                                           .withCause(exception);
+                                                           .withCause(SdkClientException.builder()
+                                                                                        .cause(exception)
+                                                                                        .build());
 
         // Expect
-        expectAllMethodsCalled(interceptor, request, exception);
+        expectAllMethodsCalled(interceptor, request, exception, true);
     }
 
-    private Context.BeforeTransmission captureBeforeTransmissionArg(ExecutionInterceptor interceptor) {
+    private Context.BeforeTransmission captureBeforeTransmissionArg(ExecutionInterceptor interceptor, boolean isAsync) {
         ArgumentCaptor<Context.BeforeTransmission> beforeTransmissionArg = ArgumentCaptor.forClass(Context.BeforeTransmission.class);
 
         InOrder inOrder = Mockito.inOrder(interceptor);
@@ -268,11 +278,17 @@ public class ExecutionInterceptorTest {
         inOrder.verify(interceptor).modifyRequest(any(), any());
         inOrder.verify(interceptor).beforeMarshalling(any(), any());
         inOrder.verify(interceptor).afterMarshalling(any(), any());
+        inOrder.verify(interceptor).modifyAsyncHttpContent(any(), any());
+        inOrder.verify(interceptor).modifyHttpContent(any(), any());
         inOrder.verify(interceptor).modifyHttpRequest(any(), any());
         inOrder.verify(interceptor).beforeTransmission(beforeTransmissionArg.capture(), any());
         inOrder.verify(interceptor).afterTransmission(any(), any());
         inOrder.verify(interceptor).modifyHttpResponse(any(), any());
+        inOrder.verify(interceptor).modifyHttpResponseContent(any(), any());
         inOrder.verify(interceptor).beforeUnmarshalling(any(), any());
+        if (isAsync) {
+            inOrder.verify(interceptor).modifyAsyncHttpResponseContent(any(), any());
+        }
         inOrder.verify(interceptor).afterUnmarshalling(any(), any());
         inOrder.verify(interceptor).modifyResponse(any(), any());
         inOrder.verify(interceptor).afterExecution(any(), any());
@@ -288,10 +304,13 @@ public class ExecutionInterceptorTest {
         inOrder.verify(interceptor).modifyRequest(any(), any());
         inOrder.verify(interceptor).beforeMarshalling(any(), any());
         inOrder.verify(interceptor).afterMarshalling(any(), any());
+        inOrder.verify(interceptor).modifyAsyncHttpContent(any(), any());
+        inOrder.verify(interceptor).modifyHttpContent(any(), any());
         inOrder.verify(interceptor).modifyHttpRequest(any(), any());
         inOrder.verify(interceptor).beforeTransmission(any(), any());
         inOrder.verify(interceptor).afterTransmission(afterTransmissionArg.capture(), any());
         inOrder.verify(interceptor).modifyHttpResponse(any(), any());
+        inOrder.verify(interceptor).modifyHttpResponseContent(any(), any());
         inOrder.verify(interceptor).beforeUnmarshalling(any(), any());
         inOrder.verify(interceptor).afterUnmarshalling(any(), any());
         inOrder.verify(interceptor).modifyResponse(any(), any());
@@ -300,7 +319,34 @@ public class ExecutionInterceptorTest {
         return afterTransmissionArg.getValue();
     }
 
-    private void expectAllMethodsCalled(ExecutionInterceptor interceptor, SdkRequest inputRequest, Exception expectedException) {
+    private Context.AfterTransmission captureAfterTransmissionArgAsync(ExecutionInterceptor interceptor) {
+        ArgumentCaptor<Context.AfterTransmission> afterTransmissionArg = ArgumentCaptor.forClass(Context.AfterTransmission.class);
+
+        InOrder inOrder = Mockito.inOrder(interceptor);
+        inOrder.verify(interceptor).beforeExecution(any(), any());
+        inOrder.verify(interceptor).modifyRequest(any(), any());
+        inOrder.verify(interceptor).beforeMarshalling(any(), any());
+        inOrder.verify(interceptor).afterMarshalling(any(), any());
+        inOrder.verify(interceptor).modifyAsyncHttpContent(any(), any());
+        inOrder.verify(interceptor).modifyHttpContent(any(), any());
+        inOrder.verify(interceptor).modifyHttpRequest(any(), any());
+        inOrder.verify(interceptor).beforeTransmission(any(), any());
+        inOrder.verify(interceptor).afterTransmission(afterTransmissionArg.capture(), any());
+        inOrder.verify(interceptor).modifyHttpResponse(any(), any());
+        inOrder.verify(interceptor).modifyHttpResponseContent(any(), any());
+        inOrder.verify(interceptor).beforeUnmarshalling(any(), any());
+        inOrder.verify(interceptor).afterUnmarshalling(any(), any());
+        inOrder.verify(interceptor).modifyResponse(any(), any());
+        inOrder.verify(interceptor).modifyAsyncHttpResponseContent(any(), any());
+        inOrder.verify(interceptor).afterExecution(any(), any());
+        verifyNoMoreInteractions(interceptor);
+        return afterTransmissionArg.getValue();
+    }
+
+    private void expectAllMethodsCalled(ExecutionInterceptor interceptor,
+                                        SdkRequest inputRequest,
+                                        Exception expectedException,
+                                        boolean isAsync) {
         ArgumentCaptor<ExecutionAttributes> attributes = ArgumentCaptor.forClass(ExecutionAttributes.class);
 
         ArgumentCaptor<Context.BeforeExecution> beforeExecutionArg = ArgumentCaptor.forClass(Context.BeforeExecution.class);
@@ -308,10 +354,14 @@ public class ExecutionInterceptorTest {
         ArgumentCaptor<Context.BeforeMarshalling> beforeMarshallingArg = ArgumentCaptor.forClass(Context.BeforeMarshalling.class);
         ArgumentCaptor<Context.AfterMarshalling> afterMarshallingArg = ArgumentCaptor.forClass(Context.AfterMarshalling.class);
         ArgumentCaptor<Context.BeforeTransmission> modifyHttpRequestArg = ArgumentCaptor.forClass(Context.BeforeTransmission.class);
+        ArgumentCaptor<Context.BeforeTransmission> modifyHttpContentArg = ArgumentCaptor.forClass(Context.BeforeTransmission.class);
+        ArgumentCaptor<Context.BeforeTransmission> modifyHttpContentAsyncArg = ArgumentCaptor.forClass(Context.BeforeTransmission.class);
         ArgumentCaptor<Context.BeforeTransmission> beforeTransmissionArg = ArgumentCaptor.forClass(Context.BeforeTransmission.class);
         ArgumentCaptor<Context.AfterTransmission> afterTransmissionArg = ArgumentCaptor.forClass(Context.AfterTransmission.class);
         ArgumentCaptor<Context.BeforeUnmarshalling> modifyHttpResponseArg = ArgumentCaptor.forClass(Context.BeforeUnmarshalling.class);
+        ArgumentCaptor<Context.BeforeUnmarshalling> modifyHttpResponseContentArg = ArgumentCaptor.forClass(Context.BeforeUnmarshalling.class);
         ArgumentCaptor<Context.BeforeUnmarshalling> beforeUnmarshallingArg = ArgumentCaptor.forClass(Context.BeforeUnmarshalling.class);
+        ArgumentCaptor<Context.BeforeUnmarshalling> modifyAsyncHttpResponseContent = ArgumentCaptor.forClass(Context.BeforeUnmarshalling.class);
         ArgumentCaptor<Context.AfterUnmarshalling> afterUnmarshallingArg = ArgumentCaptor.forClass(Context.AfterUnmarshalling.class);
         ArgumentCaptor<Context.AfterExecution> modifyResponseArg = ArgumentCaptor.forClass(Context.AfterExecution.class);
         ArgumentCaptor<Context.AfterExecution> afterExecutionArg = ArgumentCaptor.forClass(Context.AfterExecution.class);
@@ -322,16 +372,23 @@ public class ExecutionInterceptorTest {
         inOrder.verify(interceptor).modifyRequest(modifyRequestArg.capture(), attributes.capture());
         inOrder.verify(interceptor).beforeMarshalling(beforeMarshallingArg.capture(), attributes.capture());
         inOrder.verify(interceptor).afterMarshalling(afterMarshallingArg.capture(), attributes.capture());
+        inOrder.verify(interceptor).modifyAsyncHttpContent(modifyHttpContentAsyncArg.capture(), attributes.capture());
+        inOrder.verify(interceptor).modifyHttpContent(modifyHttpContentArg.capture(), attributes.capture());
         inOrder.verify(interceptor).modifyHttpRequest(modifyHttpRequestArg.capture(), attributes.capture());
         inOrder.verify(interceptor).beforeTransmission(beforeTransmissionArg.capture(), attributes.capture());
         inOrder.verify(interceptor).afterTransmission(afterTransmissionArg.capture(), attributes.capture());
         inOrder.verify(interceptor).modifyHttpResponse(modifyHttpResponseArg.capture(), attributes.capture());
+        inOrder.verify(interceptor).modifyHttpResponseContent(modifyHttpResponseContentArg.capture(), attributes.capture());
         inOrder.verify(interceptor).beforeUnmarshalling(beforeUnmarshallingArg.capture(), attributes.capture());
+        if (isAsync) {
+            inOrder.verify(interceptor).modifyAsyncHttpResponseContent(modifyAsyncHttpResponseContent.capture(), attributes.capture());
+        }
         inOrder.verify(interceptor).afterUnmarshalling(afterUnmarshallingArg.capture(), attributes.capture());
         inOrder.verify(interceptor).modifyResponse(modifyResponseArg.capture(), attributes.capture());
         inOrder.verify(interceptor).afterExecution(afterExecutionArg.capture(), attributes.capture());
         if (expectedException != null) {
             ArgumentCaptor<Context.FailedExecution> failedExecutionArg = ArgumentCaptor.forClass(Context.FailedExecution.class);
+            inOrder.verify(interceptor).modifyException(failedExecutionArg.capture(), attributes.capture());
             inOrder.verify(interceptor).onExecutionFailure(failedExecutionArg.capture(), attributes.capture());
             verifyFailedExecutionMethodCalled(failedExecutionArg, true);
             assertThat(failedExecutionArg.getValue().exception()).isEqualTo(expectedException);
@@ -368,7 +425,7 @@ public class ExecutionInterceptorTest {
         assertThat(outputResponse.stringMember()).isEqualTo("4");
     }
 
-    private void expectServiceCallErrorMethodsCalled(ExecutionInterceptor interceptor) {
+    private void expectServiceCallErrorMethodsCalled(ExecutionInterceptor interceptor, boolean isAsync) {
         ArgumentCaptor<ExecutionAttributes> attributes = ArgumentCaptor.forClass(ExecutionAttributes.class);
         ArgumentCaptor<Context.BeforeUnmarshalling> beforeUnmarshallingArg = ArgumentCaptor.forClass(Context.BeforeUnmarshalling.class);
         ArgumentCaptor<Context.FailedExecution> failedExecutionArg = ArgumentCaptor.forClass(Context.FailedExecution.class);
@@ -378,11 +435,18 @@ public class ExecutionInterceptorTest {
         inOrder.verify(interceptor).modifyRequest(any(), attributes.capture());
         inOrder.verify(interceptor).beforeMarshalling(any(), attributes.capture());
         inOrder.verify(interceptor).afterMarshalling(any(), attributes.capture());
+        inOrder.verify(interceptor).modifyAsyncHttpContent(any(), attributes.capture());
+        inOrder.verify(interceptor).modifyHttpContent(any(), attributes.capture());
         inOrder.verify(interceptor).modifyHttpRequest(any(), attributes.capture());
         inOrder.verify(interceptor).beforeTransmission(any(), attributes.capture());
         inOrder.verify(interceptor).afterTransmission(any(), attributes.capture());
         inOrder.verify(interceptor).modifyHttpResponse(any(), attributes.capture());
+        inOrder.verify(interceptor).modifyHttpResponseContent(any(), attributes.capture());
         inOrder.verify(interceptor).beforeUnmarshalling(beforeUnmarshallingArg.capture(), attributes.capture());
+        if (isAsync) {
+            inOrder.verify(interceptor).modifyAsyncHttpResponseContent(any(), attributes.capture());
+        }
+        inOrder.verify(interceptor).modifyException(failedExecutionArg.capture(), attributes.capture());
         inOrder.verify(interceptor).onExecutionFailure(failedExecutionArg.capture(), attributes.capture());
         verifyNoMoreInteractions(interceptor);
 
@@ -390,10 +454,10 @@ public class ExecutionInterceptorTest {
         assertThat(attributes.getAllValues()).containsOnly(attributes.getAllValues().get(0));
 
         // Verify HTTP response
-        assertThat(beforeUnmarshallingArg.getValue().httpResponse().getStatusCode()).isEqualTo(404);
+        assertThat(beforeUnmarshallingArg.getValue().httpResponse().statusCode()).isEqualTo(404);
 
         // Verify failed execution parameters
-        assertThat(failedExecutionArg.getValue().exception()).isInstanceOf(AmazonServiceException.class);
+        assertThat(failedExecutionArg.getValue().exception()).isInstanceOf(SdkServiceException.class);
         verifyFailedExecutionMethodCalled(failedExecutionArg, false);
     }
 
@@ -403,11 +467,11 @@ public class ExecutionInterceptorTest {
 
         assertThat(failedRequest.stringMember()).isEqualTo("1");
         assertThat(failedExecutionArg.getValue().httpRequest()).hasValueSatisfying(httpRequest -> {
-            assertThat(httpRequest.getFirstHeaderValue("x-amz-string")).hasValue("1");
-            assertThat(httpRequest.getFirstHeaderValue("x-amz-integer")).hasValue("2");
+            assertThat(httpRequest.firstMatchingHeader("x-amz-string")).hasValue("1");
+            assertThat(httpRequest.firstMatchingHeader("x-amz-integer")).hasValue("2");
         });
         assertThat(failedExecutionArg.getValue().httpResponse()).hasValueSatisfying(httpResponse -> {
-            assertThat(httpResponse.getFirstHeaderValue("x-amz-integer")).hasValue("3");
+            assertThat(httpResponse.firstMatchingHeader("x-amz-integer")).hasValue("3");
         });
 
         if (expectResponse) {
@@ -429,15 +493,18 @@ public class ExecutionInterceptorTest {
     private void validateArgs(Context.AfterMarshalling context,
                               String expectedStringMemberValue, String expectedIntegerHeaderValue) {
         validateArgs(context, expectedStringMemberValue);
-        assertThat(context.httpRequest().getFirstHeaderValue("x-amz-integer")).isEqualTo(Optional.ofNullable(expectedIntegerHeaderValue));
-        assertThat(context.httpRequest().getFirstHeaderValue("x-amz-string")).isEqualTo(Optional.ofNullable(expectedStringMemberValue));
+        assertThat(context.httpRequest().firstMatchingHeader("x-amz-integer"))
+                .isEqualTo(Optional.ofNullable(expectedIntegerHeaderValue));
+        assertThat(context.httpRequest().firstMatchingHeader("x-amz-string"))
+                .isEqualTo(Optional.ofNullable(expectedStringMemberValue));
     }
 
     private void validateArgs(Context.AfterTransmission context,
                               String expectedStringMemberValue, String expectedIntegerHeaderValue,
                               String expectedResponseIntegerHeaderValue) {
         validateArgs(context, expectedStringMemberValue, expectedIntegerHeaderValue);
-        assertThat(context.httpResponse().getFirstHeaderValue("x-amz-integer")).isEqualTo(Optional.ofNullable(expectedResponseIntegerHeaderValue));
+        assertThat(context.httpResponse().firstMatchingHeader("x-amz-integer"))
+                .isEqualTo(Optional.ofNullable(expectedResponseIntegerHeaderValue));
     }
 
     private void validateArgs(Context.AfterUnmarshalling context,
@@ -461,12 +528,12 @@ public class ExecutionInterceptorTest {
         return initializeAndBuild(ProtocolRestJsonAsyncClient.builder(), interceptor);
     }
 
-    private <T extends ClientBuilder<?, U>, U> U initializeAndBuild(T builder, ExecutionInterceptor interceptor) {
+    private <T extends AwsClientBuilder<?, U>, U> U initializeAndBuild(T builder, ExecutionInterceptor interceptor) {
         return builder.region(Region.US_WEST_1)
                       .endpointOverride(URI.create("http://localhost:" + wireMock.port()))
-                      .credentialsProvider(new StaticCredentialsProvider(new AwsCredentials("akid", "skid")))
+                      .credentialsProvider(StaticCredentialsProvider.create(AwsBasicCredentials.create("akid", "skid")))
                       .overrideConfiguration(ClientOverrideConfiguration.builder()
-                                                                        .addLastExecutionInterceptor(interceptor)
+                                                                        .addExecutionInterceptor(interceptor)
                                                                         .build())
                       .build();
     }
@@ -475,27 +542,31 @@ public class ExecutionInterceptorTest {
         @Override
         public SdkRequest modifyRequest(Context.ModifyRequest context, ExecutionAttributes executionAttributes) {
             MembersInHeadersRequest request = (MembersInHeadersRequest) context.request();
-            return request.copy(b -> b.stringMember("1"));
+            return request.toBuilder()
+                    .stringMember("1")
+                    .build();
         }
 
         @Override
-        public SdkHttpFullRequest modifyHttpRequest(Context.ModifyHttpRequest context,
+        public SdkHttpRequest modifyHttpRequest(Context.ModifyHttpRequest context,
                                                     ExecutionAttributes executionAttributes) {
-            SdkHttpFullRequest httpRequest = context.httpRequest();
-            return httpRequest.copy(b -> b.header("x-amz-integer", "2"));
+            SdkHttpRequest httpRequest = context.httpRequest();
+            return httpRequest.copy(b -> b.putHeader("x-amz-integer", "2"));
         }
 
         @Override
-        public SdkHttpFullResponse modifyHttpResponse(Context.ModifyHttpResponse context,
-                                                      ExecutionAttributes executionAttributes) {
-            SdkHttpFullResponse httpResponse = context.httpResponse();
-            return httpResponse.copy(b -> b.addHeader("x-amz-integer", Collections.singletonList("3")));
+        public SdkHttpResponse modifyHttpResponse(Context.ModifyHttpResponse context,
+                                                  ExecutionAttributes executionAttributes) {
+            SdkHttpResponse httpResponse = context.httpResponse();
+            return httpResponse.copy(b -> b.putHeader("x-amz-integer", Collections.singletonList("3")));
         }
 
         @Override
         public SdkResponse modifyResponse(Context.ModifyResponse context, ExecutionAttributes executionAttributes) {
             MembersInHeadersResponse response = (MembersInHeadersResponse) context.response();
-            return response.copy(b -> b.stringMember("4"));
+            return response.toBuilder()
+                    .stringMember("4")
+                    .build();
         }
     }
 
@@ -503,10 +574,10 @@ public class ExecutionInterceptorTest {
 
     }
 
-    private static class NoOpRequestProvider implements AsyncRequestProvider {
+    private static class NoOpAsyncRequestBody implements AsyncRequestBody {
         @Override
-        public long contentLength() {
-            return 0;
+        public Optional<Long> contentLength() {
+            return Optional.of(0L);
         }
 
         @Override
@@ -525,16 +596,24 @@ public class ExecutionInterceptorTest {
         }
     }
 
-    private static class NoOpResponseHandler implements AsyncResponseHandler<StreamingOutputOperationResponse, Object> {
-        private StreamingOutputOperationResponse response;
+    private static class NoOpAsyncResponseTransformer
+            implements AsyncResponseTransformer<StreamingOutputOperationResponse, Object> {
+        private volatile StreamingOutputOperationResponse response;
+        private volatile CompletableFuture<Object> cf;
 
         @Override
-        public void responseReceived(StreamingOutputOperationResponse response) {
+        public CompletableFuture<Object> prepare() {
+            cf = new CompletableFuture<>();
+            return cf;
+        }
+
+        @Override
+        public void onResponse(StreamingOutputOperationResponse response) {
             this.response = response;
         }
 
         @Override
-        public void onStream(Publisher<ByteBuffer> publisher) {
+        public void onStream(SdkPublisher<ByteBuffer> publisher) {
             publisher.subscribe(new Subscriber<ByteBuffer>() {
                 private Subscription s;
 
@@ -556,7 +635,7 @@ public class ExecutionInterceptorTest {
 
                 @Override
                 public void onComplete() {
-
+                    cf.complete(response);
                 }
             });
         }
@@ -564,14 +643,7 @@ public class ExecutionInterceptorTest {
         @Override
         public void exceptionOccurred(Throwable throwable) {
             throwable.printStackTrace();
-        }
-
-        @Override
-        public Object complete() {
-            // TODO: If I throw an exception here, the future isn't completed exceptionally.
-            // TODO: We have to return "response" here. We should verify other response types are cool once we switch this off of
-            // being the unmarshaller
-            return response;
+            cf.completeExceptionally(throwable);
         }
     }
 }

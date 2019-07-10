@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -28,7 +28,7 @@ import software.amazon.awssdk.services.gamelift.model.DescribeAliasRequest;
 import software.amazon.awssdk.services.gamelift.model.DescribeAliasResponse;
 import software.amazon.awssdk.services.gamelift.model.RoutingStrategy;
 import software.amazon.awssdk.services.gamelift.model.RoutingStrategyType;
-import software.amazon.awssdk.test.AwsIntegrationTestBase;
+import software.amazon.awssdk.testutils.service.AwsIntegrationTestBase;
 
 public class ServiceIntegrationTest extends AwsIntegrationTestBase {
 
@@ -67,7 +67,7 @@ public class ServiceIntegrationTest extends AwsIntegrationTestBase {
         Assert.assertNotNull(createAliasResult);
         Assert.assertNotNull(createAliasResult.alias());
         Assert.assertEquals(createdAlias.name(), aliasName);
-        Assert.assertEquals(strategy.type(), RoutingStrategyType.SIMPLE.toString());
+        Assert.assertEquals(strategy.type(), RoutingStrategyType.SIMPLE);
         Assert.assertEquals(strategy.fleetId(), fleetId);
 
         DescribeAliasResponse describeAliasResult = gameLift

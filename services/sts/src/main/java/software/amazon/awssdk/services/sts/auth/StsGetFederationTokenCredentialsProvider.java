@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,19 +15,22 @@
 
 package software.amazon.awssdk.services.sts.auth;
 
-import software.amazon.awssdk.annotation.NotThreadSafe;
-import software.amazon.awssdk.annotation.ThreadSafe;
-import software.amazon.awssdk.auth.AwsCredentialsProvider;
-import software.amazon.awssdk.services.sts.STSClient;
+import java.util.function.Consumer;
+import software.amazon.awssdk.annotations.NotThreadSafe;
+import software.amazon.awssdk.annotations.SdkPublicApi;
+import software.amazon.awssdk.annotations.ThreadSafe;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.Credentials;
 import software.amazon.awssdk.services.sts.model.GetFederationTokenRequest;
+import software.amazon.awssdk.utils.ToString;
 import software.amazon.awssdk.utils.Validate;
 
 /**
  * An implementation of {@link AwsCredentialsProvider} that periodically sends a {@link GetFederationTokenRequest} to the
  * AWS Security Token Service to maintain short-lived sessions to use for authentication. These sessions are updated
  * asynchronously in the background as they get close to expiring. If the credentials are not successfully updated asynchronously
- * in the background, calls to {@link #getCredentials()} will begin to block in an attempt to update the credentials
+ * in the background, calls to {@link #resolveCredentials()} will begin to block in an attempt to update the credentials
  * synchronously.
  *
  * This provider creates a thread in the background to periodically update credentials. If this provider is no longer needed,
@@ -35,6 +38,7 @@ import software.amazon.awssdk.utils.Validate;
  *
  * This is created using {@link StsGetFederationTokenCredentialsProvider#builder()}.
  */
+@SdkPublicApi
 @ThreadSafe
 public class StsGetFederationTokenCredentialsProvider extends StsCredentialsProvider {
     private final GetFederationTokenRequest getFederationTokenRequest;
@@ -57,8 +61,15 @@ public class StsGetFederationTokenCredentialsProvider extends StsCredentialsProv
     }
 
     @Override
-    protected Credentials getUpdatedCredentials(STSClient stsClient) {
+    protected Credentials getUpdatedCredentials(StsClient stsClient) {
         return stsClient.getFederationToken(getFederationTokenRequest).credentials();
+    }
+
+    @Override
+    public String toString() {
+        return ToString.builder("StsGetFederationTokenCredentialsProvider")
+                       .add("refreshRequest", getFederationTokenRequest)
+                       .build();
     }
 
     /**
@@ -83,6 +94,15 @@ public class StsGetFederationTokenCredentialsProvider extends StsCredentialsProv
         public Builder refreshRequest(GetFederationTokenRequest getFederationTokenRequest) {
             this.getFederationTokenRequest = getFederationTokenRequest;
             return this;
+        }
+
+        /**
+         * Similar to {@link #refreshRequest(GetFederationTokenRequest)}, but takes a lambda to configure a new
+         * {@link GetFederationTokenRequest.Builder}. This removes the need to called
+         * {@link GetFederationTokenRequest#builder()} and {@link GetFederationTokenRequest.Builder#build()}.
+         */
+        public Builder refreshRequest(Consumer<GetFederationTokenRequest.Builder> getFederationTokenRequest) {
+            return refreshRequest(GetFederationTokenRequest.builder().applyMutation(getFederationTokenRequest).build());
         }
     }
 }

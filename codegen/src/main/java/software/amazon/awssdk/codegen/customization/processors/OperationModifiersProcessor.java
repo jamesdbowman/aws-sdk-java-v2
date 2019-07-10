@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import software.amazon.awssdk.codegen.customization.CodegenCustomizationProcessor;
-import software.amazon.awssdk.codegen.internal.Constants;
+import software.amazon.awssdk.codegen.internal.Constant;
 import software.amazon.awssdk.codegen.model.config.customization.OperationModifier;
 import software.amazon.awssdk.codegen.model.intermediate.IntermediateModel;
 import software.amazon.awssdk.codegen.model.intermediate.MemberModel;
@@ -31,7 +31,7 @@ import software.amazon.awssdk.codegen.model.service.Member;
 import software.amazon.awssdk.codegen.model.service.Operation;
 import software.amazon.awssdk.codegen.model.service.ServiceModel;
 import software.amazon.awssdk.codegen.model.service.Shape;
-import software.amazon.awssdk.codegen.model.service.ShapeTypes;
+import software.amazon.awssdk.codegen.model.service.ShapeType;
 
 /**
  * This processor internally keeps track of all the result wrapper shapes it
@@ -115,6 +115,11 @@ final class OperationModifiersProcessor implements CodegenCustomizationProcessor
     }
 
     private void preprocessExclude(ServiceModel serviceModel, String operationName) {
+        Operation operation = serviceModel.getOperation(operationName);
+        // Remove input and output shapes of the operation
+        serviceModel.getShapes().remove(operation.getInput().getShape());
+        serviceModel.getShapes().remove(operation.getOutput().getShape());
+
         serviceModel.getOperations().remove(operationName);
     }
 
@@ -124,7 +129,7 @@ final class OperationModifiersProcessor implements CodegenCustomizationProcessor
         String wrappedShapeName = modifier.getWrappedResultShape();
         Shape wrappedShape = serviceModel.getShapes().get(wrappedShapeName);
 
-        String wrapperShapeName = operationName + Constants.RESPONSE_CLASS_SUFFIX;
+        String wrapperShapeName = operationName + Constant.RESPONSE_CLASS_SUFFIX;
         String wrappedAsMember = modifier.getWrappedResultMember();
 
         if (serviceModel.getShapes().containsKey(wrapperShapeName)) {
@@ -148,7 +153,7 @@ final class OperationModifiersProcessor implements CodegenCustomizationProcessor
     private Shape createWrapperShape(String wrapperShapeName, String wrappedShapeName, Shape wrapped, String wrappedAsMember) {
 
         Shape wrapper = new Shape();
-        wrapper.setType(ShapeTypes.Structure.getName());
+        wrapper.setType(ShapeType.Structure.getName());
         wrapper.setDocumentation("A simple result wrapper around the "
                                  + wrappedShapeName + " object that was sent over the wire.");
 

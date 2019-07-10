@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,45 +15,43 @@
 
 package software.amazon.awssdk.services.machinelearning;
 
+import static software.amazon.awssdk.testutils.service.S3BucketUtils.temporaryBucketName;
+
 import java.io.IOException;
+import java.time.Duration;
 import java.util.HashMap;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.machinelearning.model.CreateDataSourceFromS3Request;
 import software.amazon.awssdk.services.machinelearning.model.CreateDataSourceFromS3Response;
-import software.amazon.awssdk.services.machinelearning.model.CreateMLModelRequest;
-import software.amazon.awssdk.services.machinelearning.model.CreateMLModelResponse;
+import software.amazon.awssdk.services.machinelearning.model.CreateMlModelRequest;
+import software.amazon.awssdk.services.machinelearning.model.CreateMlModelResponse;
 import software.amazon.awssdk.services.machinelearning.model.CreateRealtimeEndpointRequest;
 import software.amazon.awssdk.services.machinelearning.model.DeleteDataSourceRequest;
-import software.amazon.awssdk.services.machinelearning.model.DeleteMLModelRequest;
+import software.amazon.awssdk.services.machinelearning.model.DeleteMlModelRequest;
 import software.amazon.awssdk.services.machinelearning.model.DeleteRealtimeEndpointRequest;
 import software.amazon.awssdk.services.machinelearning.model.EntityStatus;
-import software.amazon.awssdk.services.machinelearning.model.GetDataSourceRequest;
-import software.amazon.awssdk.services.machinelearning.model.GetDataSourceResponse;
-import software.amazon.awssdk.services.machinelearning.model.GetMLModelRequest;
-import software.amazon.awssdk.services.machinelearning.model.GetMLModelResponse;
 import software.amazon.awssdk.services.machinelearning.model.MLModelType;
-import software.amazon.awssdk.services.machinelearning.model.PredictRequest;
 import software.amazon.awssdk.services.machinelearning.model.Prediction;
-import software.amazon.awssdk.services.machinelearning.model.RealtimeEndpointInfo;
+import software.amazon.awssdk.services.machinelearning.model.PredictorNotMountedException;
 import software.amazon.awssdk.services.machinelearning.model.RealtimeEndpointStatus;
 import software.amazon.awssdk.services.machinelearning.model.S3DataSpec;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.sync.RequestBody;
-import software.amazon.awssdk.test.AwsTestBase;
+import software.amazon.awssdk.testutils.Waiter;
+import software.amazon.awssdk.testutils.service.AwsTestBase;
 
 public class AmazonMachineLearningIntegrationTest extends AwsTestBase {
 
-    private static final String BUCKET_NAME =
-            "aws-java-sdk-eml-test-" + System.currentTimeMillis();
+    private static final String BUCKET_NAME = temporaryBucketName("aws-java-sdk-eml-test");
 
     private static final String KEY = "data.csv";
 
@@ -114,12 +112,14 @@ public class AmazonMachineLearningIntegrationTest extends AwsTestBase {
 
         s3.createBucket(CreateBucketRequest.builder().bucket(BUCKET_NAME).build());
 
-        s3.putObject(PutObjectRequest.builder()
-                                     .bucket(BUCKET_NAME)
-                                     .key(KEY)
-                                     .acl(ObjectCannedACL.PublicRead)
-                                     .build(),
-                     RequestBody.of(DATA.getBytes()));
+        Waiter.run(() -> s3.putObject(PutObjectRequest.builder()
+                                                      .bucket(BUCKET_NAME)
+                                                      .key(KEY)
+                                                      .acl(ObjectCannedACL.PUBLIC_READ)
+                                                      .build(),
+                                      RequestBody.fromBytes(DATA.getBytes())))
+              .ignoringException(NoSuchBucketException.class)
+              .orFail();
     }
 
     @AfterClass
@@ -134,7 +134,7 @@ public class AmazonMachineLearningIntegrationTest extends AwsTestBase {
                 }
 
                 try {
-                    client.deleteMLModel(DeleteMLModelRequest.builder()
+                    client.deleteMLModel(DeleteMlModelRequest.builder()
                                                  .mlModelId(mlModelId).build());
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -180,10 +180,10 @@ public class AmazonMachineLearningIntegrationTest extends AwsTestBase {
 
         dataSourceId = result.dataSourceId();
 
-        Assert.assertEquals("COMPLETED", waitForDataSource());
+        waitForDataSource();
 
-        CreateMLModelResponse result2 =
-                client.createMLModel(CreateMLModelRequest.builder()
+        CreateMlModelResponse result2 =
+                client.createMLModel(CreateMlModelRequest.builder()
                         .trainingDataSourceId(dataSourceId)
                         .mlModelType(MLModelType.BINARY)
                         .mlModelId("mlid_" + System.currentTimeMillis())
@@ -191,7 +191,7 @@ public class AmazonMachineLearningIntegrationTest extends AwsTestBase {
 
         mlModelId = result2.mlModelId();
 
-        Assert.assertEquals("COMPLETED", waitForMlModel());
+        waitForMlModel();
 
 
         client.createRealtimeEndpoint(CreateRealtimeEndpointRequest.builder()
@@ -199,10 +199,6 @@ public class AmazonMachineLearningIntegrationTest extends AwsTestBase {
                 .build());
 
         String uri = waitUntilMounted();
-
-        // Apparently just because the endpoint is ready doesn't mean
-        // it's necessarily ready. :(
-        Thread.sleep(60000);
 
         HashMap<String, String> record = new HashMap<String, String>() {
             {
@@ -212,110 +208,36 @@ public class AmazonMachineLearningIntegrationTest extends AwsTestBase {
             }
         };
 
-        Prediction prediction = client.predict(PredictRequest.builder()
-                .predictEndpoint(uri)
-                .mlModelId(mlModelId)
-                .record(record).build())
-                .prediction();
+        Prediction prediction = Waiter.run(() -> client.predict(r -> r.predictEndpoint(uri).mlModelId(mlModelId).record(record)))
+                                      .ignoringException(PredictorNotMountedException.class)
+                                      .orFailAfter(Duration.ofMinutes(10))
+                                      .prediction();
+
         System.out.println(prediction.predictedLabel());
         System.out.println(prediction.predictedValue());
         System.out.println(prediction.predictedScores());
         System.out.println(prediction.details());
     }
 
-    private String waitForDataSource() throws InterruptedException {
-        for (int i = 0; i < 100; ++i) {
-            GetDataSourceResponse result =
-                    client.getDataSource(GetDataSourceRequest.builder()
-                            .dataSourceId(dataSourceId)
-                            .build());
-
-            System.out.println(result);
-
-            String status = result.status();
-            switch (EntityStatus.valueOf(status)) {
-                case PENDING:
-                case INPROGRESS:
-                    Thread.sleep(10000);
-                    break;
-
-                case FAILED:
-                case COMPLETED:
-                case DELETED:
-                    return status;
-
-                default:
-                    Assert.fail("Unrecognized data source validation status: "
-                                + status);
-            }
-        }
-
-        Assert.fail("Timed out waiting for data source validation");
-        return null;
+    private void waitForDataSource() throws InterruptedException {
+        Waiter.run(() -> client.getDataSource(r -> r.dataSourceId(dataSourceId)))
+              .until(r -> r.status() == EntityStatus.COMPLETED)
+              .orFailAfter(Duration.ofMinutes(10));
     }
 
-    private String waitForMlModel() throws InterruptedException {
-        for (int i = 0; i < 100; ++i) {
-            GetMLModelResponse result =
-                    client.getMLModel(GetMLModelRequest.builder()
-                            .mlModelId(mlModelId)
-                            .build());
-
-            System.out.println(result);
-
-            String status = result.status();
-            switch (EntityStatus.valueOf(status)) {
-                case PENDING:
-                case INPROGRESS:
-                    Thread.sleep(10000);
-                    continue;
-
-                case FAILED:
-                case COMPLETED:
-                case DELETED:
-                    return status;
-
-                default:
-                    throw new IllegalStateException("Unrecognized status: "
-                                                    + status);
-            }
-        }
-
-        Assert.fail("Timed out waiting for ML Model to be ready");
-        return null;
+    private void waitForMlModel() throws InterruptedException {
+        Waiter.run(() -> client.getMLModel(r -> r.mlModelId(mlModelId)))
+              .until(r -> r.status() == EntityStatus.COMPLETED)
+              .orFailAfter(Duration.ofMinutes(10));
     }
 
     private String waitUntilMounted() throws InterruptedException {
-        for (int i = 0; i < 100; ++i) {
-            GetMLModelResponse result =
-                    client.getMLModel(GetMLModelRequest.builder()
-                            .mlModelId(mlModelId)
-                            .build());
-
-            System.out.println(result);
-
-            RealtimeEndpointInfo info = result.endpointInfo();
-            if (info == null) {
-                Thread.sleep(1000);
-                continue;
-            }
-
-            String status = info.endpointStatus();
-            switch (RealtimeEndpointStatus.valueOf(status)) {
-                case READY:
-                    return info.endpointUrl();
-
-                case UPDATING:
-                    Thread.sleep(1000);
-                    continue;
-
-                case NONE:
-                default:
-                    Assert.fail("Not mounted!");
-            }
-        }
-
-        Assert.fail("Timed out waiting for ML model to get mounted");
-        return null;
+        return Waiter.run(() -> client.getMLModel(r -> r.mlModelId(mlModelId)))
+                     .until(r -> r.endpointInfo() != null &&
+                                 r.endpointInfo().endpointStatus() == RealtimeEndpointStatus.READY &&
+                                 r.status() == EntityStatus.COMPLETED)
+                     .orFailAfter(Duration.ofMinutes(10))
+                     .endpointInfo()
+                     .endpointUrl();
     }
 }

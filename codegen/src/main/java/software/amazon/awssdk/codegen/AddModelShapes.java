@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -44,16 +44,16 @@ final class AddModelShapes extends AddShapes implements IntermediateModelShapePr
 
     private Map<String, ShapeModel> constructModelShapes(Set<String> shapesToSkip) {
         // Java output shape models, to be constructed
-        final Map<String, ShapeModel> javaShapes = new HashMap<String, ShapeModel>();
+        Map<String, ShapeModel> javaShapes = new HashMap<>();
 
         for (Map.Entry<String, Shape> entry : getServiceModel().getShapes().entrySet()) {
-            final String shapeName = entry.getKey();
-            final Shape shape = entry.getValue();
+            String shapeName = entry.getKey();
+            Shape shape = entry.getValue();
 
             ShapeType shapeType = getModelShapeType(shape);
 
             if (shapeType != null) {
-                final String javaClassName = getNamingStrategy().getJavaClassName(shapeName);
+                String javaClassName = getNamingStrategy().getJavaClassName(shapeName);
                 if (shapesToSkip.contains(javaClassName)) {
                     continue;
                 }
@@ -77,6 +77,9 @@ final class AddModelShapes extends AddShapes implements IntermediateModelShapePr
      * @return null if the given shape is neither a structure nor enum model.
      */
     private ShapeType getModelShapeType(final Shape shape) {
+        if (shape.isException()) {
+            return null;
+        }
         if (isStructure(shape)) {
             return ShapeType.Model;
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,14 +17,21 @@ package software.amazon.awssdk.utils;
 
 import java.io.ByteArrayInputStream;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import software.amazon.awssdk.annotation.SdkProtectedApi;
+import java.util.Base64;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
+import software.amazon.awssdk.utils.internal.Base16Lower;
 
 /**
  * Utilities for encoding and decoding binary data to and from different forms.
  */
 @SdkProtectedApi
-public class BinaryUtils {
+public final class BinaryUtils {
+
+    private BinaryUtils() {
+    }
+
     /**
      * Converts byte data to a Hex-encoded string in lower case.
      *
@@ -56,7 +63,18 @@ public class BinaryUtils {
      * @return encoded Base64 string.
      */
     public static String toBase64(byte[] data) {
-        return Base64Utils.encodeAsString(data);
+        return data == null ? null : new String(toBase64Bytes(data), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Converts byte data to a Base64-encoded string.
+     * @param data
+     *
+     *            data to Base64 encode.
+     * @return encoded Base64 string.
+     */
+    public static byte[] toBase64Bytes(byte[] data) {
+        return data == null ? null : Base64.getEncoder().encode(data);
     }
 
     /**
@@ -68,7 +86,19 @@ public class BinaryUtils {
      * @return bytes decoded from a Base64 string.
      */
     public static byte[] fromBase64(String b64Data) {
-        return b64Data == null ? null : Base64Utils.decode(b64Data);
+        return b64Data == null ? null : Base64.getDecoder().decode(b64Data);
+    }
+
+    /**
+     * Converts a Base64-encoded string to the original byte data.
+     *
+     * @param b64Data
+     *            a Base64-encoded string to decode.
+     *
+     * @return bytes decoded from a Base64 string.
+     */
+    public static byte[] fromBase64Bytes(byte[] b64Data) {
+        return b64Data == null ? null : Base64.getDecoder().decode(b64Data);
     }
 
     /**

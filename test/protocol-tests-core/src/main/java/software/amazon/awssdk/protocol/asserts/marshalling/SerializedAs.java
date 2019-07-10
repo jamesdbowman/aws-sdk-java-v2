@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 package software.amazon.awssdk.protocol.asserts.marshalling;
 
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-import software.amazon.awssdk.http.HttpMethodName;
-import software.amazon.awssdk.protocol.model.HttpMethodNameDeserializer;
+import software.amazon.awssdk.http.SdkHttpMethod;
+import software.amazon.awssdk.protocol.model.SdkHttpMethodDeserializer;
 
 /**
  * Main composite for marshalling assertions. Contains sub assertions for each component of an HTTP
@@ -37,8 +37,8 @@ public class SerializedAs extends CompositeMarshallingAssertion {
         addAssertion(new UriAssertion(uri));
     }
 
-    @JsonDeserialize(using = HttpMethodNameDeserializer.class)
-    public void setMethod(HttpMethodName method) {
+    @JsonDeserialize(using = SdkHttpMethodDeserializer.class)
+    public void setMethod(SdkHttpMethod method) {
         addAssertion(new HttpMethodAssertion(method));
     }
 

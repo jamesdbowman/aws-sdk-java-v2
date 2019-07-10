@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 package software.amazon.awssdk.services.sns;
 
 import org.junit.Test;
-import software.amazon.awssdk.test.AwsTestBase;
+import software.amazon.awssdk.testutils.service.AwsTestBase;
 
 /**
  * Simple smoke test for session management.
@@ -32,7 +32,7 @@ public class SessionBasedAuthenticationIntegrationTest extends AwsTestBase {
 
         // RenewableAWSSessionCredentials sessionCredentials = new
         // STSSessionCredentials(credentials);
-        // AmazonSNSClient sns = new AmazonSNSClient(sessionCredentials);
+        // AmazonSnsClient sns = new AmazonSnsClient(sessionCredentials);
         //
         // sns.createTopic(new CreateTopicRequest().withName("java" +
         // this.getClass().getSimpleName()

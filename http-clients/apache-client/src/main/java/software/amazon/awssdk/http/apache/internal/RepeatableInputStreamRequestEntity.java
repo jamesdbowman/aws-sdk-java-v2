@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -19,11 +19,14 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Optional;
 import org.apache.http.entity.BasicHttpEntity;
 import org.apache.http.entity.InputStreamEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import software.amazon.awssdk.http.SdkHttpFullRequest;
+import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.http.ContentStreamProvider;
+import software.amazon.awssdk.http.HttpExecuteRequest;
 
 /**
  * Custom implementation of {@link org.apache.http.HttpEntity} that delegates to an
@@ -32,6 +35,7 @@ import software.amazon.awssdk.http.SdkHttpFullRequest;
  * report that it is repeatable and will reset the stream on all subsequent
  * attempts to write out the request.
  */
+@SdkInternalApi
 public class RepeatableInputStreamRequestEntity extends BasicHttpEntity {
 
     private static final Logger log = LoggerFactory.getLogger(RepeatableInputStreamRequestEntity.class);
@@ -69,7 +73,7 @@ public class RepeatableInputStreamRequestEntity extends BasicHttpEntity {
      * @param request The details of the request being written out (content type,
      *                content length, and content).
      */
-    public RepeatableInputStreamRequestEntity(final SdkHttpFullRequest request) {
+    public RepeatableInputStreamRequestEntity(final HttpExecuteRequest request) {
         setChunked(false);
 
         /*
@@ -78,17 +82,17 @@ public class RepeatableInputStreamRequestEntity extends BasicHttpEntity {
          * buffer the entire stream contents into memory to determine
          * the content length.
          */
-        long contentLength = request.getFirstHeaderValue("Content-Length")
-                .map(this::parseContentLength)
-                .orElse(-1L);
+        long contentLength = request.httpRequest().firstMatchingHeader("Content-Length")
+                                    .map(this::parseContentLength)
+                                    .orElse(-1L);
 
-        content = getContent(request);
+        content = getContent(request.contentStreamProvider());
         // TODO v2 MetricInputStreamEntity
         inputStreamRequestEntity = new InputStreamEntity(content, contentLength);
         setContent(content);
         setContentLength(contentLength);
 
-        request.getFirstHeaderValue("Content-Type").ifPresent(contentType -> {
+        request.httpRequest().firstMatchingHeader("Content-Type").ifPresent(contentType -> {
             inputStreamRequestEntity.setContentType(contentType);
             setContentType(contentType);
         });
@@ -106,9 +110,8 @@ public class RepeatableInputStreamRequestEntity extends BasicHttpEntity {
     /**
      * @return The request content input stream or an empty input stream if there is no content.
      */
-    private InputStream getContent(SdkHttpFullRequest request) {
-        return (request.getContent() == null) ? new ByteArrayInputStream(new byte[0]) :
-                request.getContent();
+    private InputStream getContent(Optional<ContentStreamProvider> contentStreamProvider) {
+        return contentStreamProvider.map(ContentStreamProvider::newStream).orElseGet(() -> new ByteArrayInputStream(new byte[0]));
     }
 
     @Override

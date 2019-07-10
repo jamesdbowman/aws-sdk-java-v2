@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import software.amazon.awssdk.protocol.model.TestSuite;
  * Loads the test specification from it's JSON representation. Assumes the JSON files are in the
  * AwsDrSharedSdk package under /test/protocols.
  */
-public class ProtocolTestSuiteLoader {
+public final class ProtocolTestSuiteLoader {
 
     private static final String RESOURCE_PREFIX = "/software/amazon/awssdk/protocol/suites/";
     private static final ObjectMapper MAPPER = new ObjectMapper()
@@ -50,12 +50,14 @@ public class ProtocolTestSuiteLoader {
 
     private Stream<? extends TestCase> loadTestCases(String testCase) {
         try {
-            final List<TestCase> testCases = MAPPER
-                    .readValue(getClass().getResource(RESOURCE_PREFIX + testCase), new TypeReference<List<TestCase>>() {
-                    });
+            List<TestCase> testCases = MAPPER
+                    .readValue(getClass().getResource(RESOURCE_PREFIX + testCase), new ListTypeReference());
             return testCases.stream();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static class ListTypeReference extends TypeReference<List<TestCase>> {
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,11 +17,13 @@ package software.amazon.awssdk.http.apache.internal.impl;
 
 import org.apache.http.client.HttpClient;
 import org.apache.http.conn.HttpClientConnectionManager;
+import software.amazon.awssdk.annotations.SdkInternalApi;
 
 /**
  * An extension of Apache's HttpClient that expose the connection manager
  * associated with the client.
  */
+@SdkInternalApi
 public interface ConnectionManagerAwareHttpClient extends HttpClient {
 
     /**

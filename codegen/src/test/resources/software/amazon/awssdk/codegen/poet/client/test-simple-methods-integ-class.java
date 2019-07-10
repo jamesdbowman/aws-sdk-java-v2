@@ -1,8 +1,8 @@
 package software.amazon.awssdk.services.json;
 
-import javax.annotation.Generated;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import software.amazon.awssdk.annotations.Generated;
 import software.amazon.awssdk.regions.Region;
 
 @Generated("software.amazon.awssdk:codegen")
@@ -23,7 +23,7 @@ public class SimpleMethodsIntegrationTest {
     }
 
     @Test
-    public void getWithoutRequiredMembers_SimpleMethod_Succeeds() throws Exception {
-        client.getWithoutRequiredMembers();
+    public void paginatedOperationWithResultKey_SimpleMethod_Succeeds() throws Exception {
+        client.paginatedOperationWithResultKey();
     }
 }

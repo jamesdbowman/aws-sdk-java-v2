@@ -1,18 +1,37 @@
 package software.amazon.awssdk.services.jsonprotocoltests.model;
 
+import java.io.Serializable;
 import java.time.Instant;
-import javax.annotation.Generated;
-import software.amazon.awssdk.annotation.SdkInternalApi;
-import software.amazon.awssdk.protocol.ProtocolMarshaller;
-import software.amazon.awssdk.protocol.StructuredPojo;
-import software.amazon.awssdk.services.jsonprotocoltests.transform.StructWithTimestampMarshaller;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import software.amazon.awssdk.annotations.Generated;
+import software.amazon.awssdk.core.SdkField;
+import software.amazon.awssdk.core.SdkPojo;
+import software.amazon.awssdk.core.protocol.MarshallLocation;
+import software.amazon.awssdk.core.protocol.MarshallingType;
+import software.amazon.awssdk.core.traits.LocationTrait;
+import software.amazon.awssdk.utils.ToString;
 import software.amazon.awssdk.utils.builder.CopyableBuilder;
 import software.amazon.awssdk.utils.builder.ToCopyableBuilder;
 
 /**
  */
 @Generated("software.amazon.awssdk:codegen")
-public class StructWithTimestamp implements StructuredPojo, ToCopyableBuilder<StructWithTimestamp.Builder, StructWithTimestamp> {
+public final class StructWithTimestamp implements SdkPojo, Serializable,
+                                                  ToCopyableBuilder<StructWithTimestamp.Builder, StructWithTimestamp> {
+    private static final SdkField<Instant> NESTED_TIMESTAMP_FIELD = SdkField.<Instant> builder(MarshallingType.INSTANT)
+        .getter(getter(StructWithTimestamp::nestedTimestamp)).setter(setter(Builder::nestedTimestamp))
+        .traits(LocationTrait.builder().location(MarshallLocation.PAYLOAD).locationName("NestedTimestamp").build()).build();
+
+    private static final List<SdkField<?>> SDK_FIELDS = Collections.unmodifiableList(Arrays.asList(NESTED_TIMESTAMP_FIELD));
+
+    private static final long serialVersionUID = 1L;
+
     private final Instant nestedTimestamp;
 
     private StructWithTimestamp(BuilderImpl builder) {
@@ -44,7 +63,7 @@ public class StructWithTimestamp implements StructuredPojo, ToCopyableBuilder<St
     @Override
     public int hashCode() {
         int hashCode = 1;
-        hashCode = 31 * hashCode + ((nestedTimestamp() == null) ? 0 : nestedTimestamp().hashCode());
+        hashCode = 31 * hashCode + Objects.hashCode(nestedTimestamp());
         return hashCode;
     }
 
@@ -60,33 +79,41 @@ public class StructWithTimestamp implements StructuredPojo, ToCopyableBuilder<St
             return false;
         }
         StructWithTimestamp other = (StructWithTimestamp) obj;
-        if (other.nestedTimestamp() == null ^ this.nestedTimestamp() == null) {
-            return false;
-        }
-        if (other.nestedTimestamp() != null && !other.nestedTimestamp().equals(this.nestedTimestamp())) {
-            return false;
-        }
-        return true;
+        return Objects.equals(nestedTimestamp(), other.nestedTimestamp());
     }
 
+    /**
+     * Returns a string representation of this object. This is useful for testing and debugging. Sensitive data will be
+     * redacted from this string using a placeholder value.
+     */
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{");
-        if (nestedTimestamp() != null) {
-            sb.append("NestedTimestamp: ").append(nestedTimestamp()).append(",");
+        return ToString.builder("StructWithTimestamp").add("NestedTimestamp", nestedTimestamp()).build();
+    }
+
+    public <T> Optional<T> getValueForField(String fieldName, Class<T> clazz) {
+        switch (fieldName) {
+            case "NestedTimestamp":
+                return Optional.ofNullable(clazz.cast(nestedTimestamp()));
+            default:
+                return Optional.empty();
         }
-        sb.append("}");
-        return sb.toString();
     }
 
-    @SdkInternalApi
     @Override
-    public void marshall(ProtocolMarshaller protocolMarshaller) {
-        StructWithTimestampMarshaller.getInstance().marshall(this, protocolMarshaller);
+    public List<SdkField<?>> sdkFields() {
+        return SDK_FIELDS;
     }
 
-    public interface Builder extends CopyableBuilder<Builder, StructWithTimestamp> {
+    private static <T> Function<Object, T> getter(Function<StructWithTimestamp, T> g) {
+        return obj -> g.apply((StructWithTimestamp) obj);
+    }
+
+    private static <T> BiConsumer<Object, T> setter(BiConsumer<Builder, T> s) {
+        return (obj, val) -> s.accept((Builder) obj, val);
+    }
+
+    public interface Builder extends SdkPojo, CopyableBuilder<Builder, StructWithTimestamp> {
         /**
          * Sets the value of the NestedTimestamp property for this object.
          *
@@ -97,14 +124,14 @@ public class StructWithTimestamp implements StructuredPojo, ToCopyableBuilder<St
         Builder nestedTimestamp(Instant nestedTimestamp);
     }
 
-    private static final class BuilderImpl implements Builder {
+    static final class BuilderImpl implements Builder {
         private Instant nestedTimestamp;
 
         private BuilderImpl() {
         }
 
         private BuilderImpl(StructWithTimestamp model) {
-            setNestedTimestamp(model.nestedTimestamp);
+            nestedTimestamp(model.nestedTimestamp);
         }
 
         public final Instant getNestedTimestamp() {
@@ -124,6 +151,11 @@ public class StructWithTimestamp implements StructuredPojo, ToCopyableBuilder<St
         @Override
         public StructWithTimestamp build() {
             return new StructWithTimestamp(this);
+        }
+
+        @Override
+        public List<SdkField<?>> sdkFields() {
+            return SDK_FIELDS;
         }
     }
 }

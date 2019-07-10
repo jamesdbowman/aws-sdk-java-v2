@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import org.eclipse.jdt.core.formatter.DefaultCodeFormatterConstants;
 import org.eclipse.jface.text.Document;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.text.edits.TextEdit;
-import software.amazon.awssdk.codegen.internal.Constants;
+import software.amazon.awssdk.codegen.internal.Constant;
 
 /**
  * Formats the generated java source code. Uses Eclipse JDT core plugin from the Eclipse SDK.
@@ -89,10 +89,10 @@ public class JavaCodeFormatter implements CodeTransformer {
     }
 
     public String apply(String contents) {
-        final TextEdit edit = codeFormatter.format(
+        TextEdit edit = codeFormatter.format(
                 CodeFormatter.K_COMPILATION_UNIT
                 | CodeFormatter.F_INCLUDE_COMMENTS, contents, 0,
-                contents.length(), 0, Constants.LF);
+                contents.length(), 0, Constant.LF);
 
         if (edit == null) {
             // TODO log a fatal or warning here. Throwing an exception is causing the actual freemarker error to be lost

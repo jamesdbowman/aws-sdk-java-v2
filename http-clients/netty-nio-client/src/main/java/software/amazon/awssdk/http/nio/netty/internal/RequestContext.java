@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,49 +15,53 @@
 
 package software.amazon.awssdk.http.nio.netty.internal;
 
+import io.netty.channel.EventLoopGroup;
 import io.netty.channel.pool.ChannelPool;
-import io.netty.handler.codec.http.HttpRequest;
-import software.amazon.awssdk.http.SdkHttpRequest;
-import software.amazon.awssdk.http.async.SdkHttpRequestProvider;
-import software.amazon.awssdk.http.async.SdkHttpResponseHandler;
+import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.http.async.AsyncExecuteRequest;
+import software.amazon.awssdk.http.async.SdkAsyncHttpResponseHandler;
 
+@SdkInternalApi
 public final class RequestContext {
 
     private final ChannelPool channelPool;
-    private final SdkHttpRequest sdkRequest;
-    private final SdkHttpRequestProvider requestProvider;
-    private final HttpRequest nettyRequest;
-    private final SdkHttpResponseHandler handler;
+    private final EventLoopGroup eventLoopGroup;
+    private final AsyncExecuteRequest executeRequest;
+    private final NettyConfiguration configuration;
 
     public RequestContext(ChannelPool channelPool,
-                          SdkHttpRequest sdkRequest,
-                          SdkHttpRequestProvider requestProvider,
-                          HttpRequest nettyRequest,
-                          SdkHttpResponseHandler handler) {
+                          EventLoopGroup eventLoopGroup,
+                          AsyncExecuteRequest executeRequest,
+                          NettyConfiguration configuration) {
         this.channelPool = channelPool;
-        this.sdkRequest = sdkRequest;
-        this.requestProvider = requestProvider;
-        this.nettyRequest = nettyRequest;
-        this.handler = handler;
+        this.eventLoopGroup = eventLoopGroup;
+        this.executeRequest = executeRequest;
+        this.configuration = configuration;
     }
 
-    SdkHttpResponseHandler handler() {
-        return handler;
-    }
-
-    ChannelPool channelPool() {
+    public ChannelPool channelPool() {
         return channelPool;
     }
 
-    SdkHttpRequest sdkRequest() {
-        return this.sdkRequest;
+    public EventLoopGroup eventLoopGroup() {
+        return eventLoopGroup;
     }
 
-    SdkHttpRequestProvider sdkRequestProvider() {
-        return requestProvider;
+    public AsyncExecuteRequest executeRequest() {
+        return executeRequest;
     }
 
-    HttpRequest nettyRequest() {
-        return nettyRequest;
+    /**
+     * Convenience method to retrieve the {@link SdkAsyncHttpResponseHandler} contained in the {@link AsyncExecuteRequest}
+     * returned by {@link #executeRequest}.
+     *
+     * @return The response handler for this request.
+     */
+    public SdkAsyncHttpResponseHandler handler() {
+        return executeRequest().responseHandler();
+    }
+
+    public NettyConfiguration configuration() {
+        return configuration;
     }
 }

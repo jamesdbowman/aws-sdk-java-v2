@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,11 +15,10 @@
 
 package software.amazon.awssdk.codegen;
 
-import static software.amazon.awssdk.codegen.internal.Constants.RESPONSE_CLASS_SUFFIX;
+import static software.amazon.awssdk.codegen.internal.Constant.RESPONSE_CLASS_SUFFIX;
 
 import java.util.HashMap;
 import java.util.Map;
-import software.amazon.awssdk.codegen.model.config.customization.CustomizationConfig;
 import software.amazon.awssdk.codegen.model.intermediate.OperationModel;
 import software.amazon.awssdk.codegen.model.intermediate.ReturnTypeModel;
 import software.amazon.awssdk.codegen.model.intermediate.ShapeModel;
@@ -34,31 +33,24 @@ import software.amazon.awssdk.codegen.naming.NamingStrategy;
 public class AddEmptyOutputShape implements IntermediateModelShapeProcessor {
 
     private final ServiceModel serviceModel;
-    private final CustomizationConfig customizationConfig;
     private final NamingStrategy namingStrategy;
 
     public AddEmptyOutputShape(IntermediateModelBuilder builder) {
         this.serviceModel = builder.getService();
-        this.customizationConfig = builder.getCustomConfig();
         this.namingStrategy = builder.getNamingStrategy();
     }
 
     @Override
     public Map<String, ShapeModel> process(Map<String, OperationModel> currentOperations,
                                            Map<String, ShapeModel> currentShapes) {
-        if (customizationConfig.useModeledOutputShapeNames()) {
-            return currentShapes;
-        } else {
-            return addEmptyOutputShapes(currentOperations);
-        }
-
+        return addEmptyOutputShapes(currentOperations);
     }
 
     private Map<String, ShapeModel> addEmptyOutputShapes(
-            Map<String, OperationModel> currentOperations) {
-        final Map<String, Operation> operations = serviceModel.getOperations();
+        Map<String, OperationModel> currentOperations) {
+        Map<String, Operation> operations = serviceModel.getOperations();
 
-        final Map<String, ShapeModel> emptyOutputShapes = new HashMap<>();
+        Map<String, ShapeModel> emptyOutputShapes = new HashMap<>();
 
         for (Map.Entry<String, Operation> entry : operations.entrySet()) {
             String operationName = entry.getKey();
@@ -66,17 +58,17 @@ public class AddEmptyOutputShape implements IntermediateModelShapeProcessor {
 
             Output output = operation.getOutput();
             if (output == null) {
-                final String outputShape = operationName + RESPONSE_CLASS_SUFFIX;
-                final OperationModel operationModel = currentOperations.get(operationName);
+                String outputShape = operationName + RESPONSE_CLASS_SUFFIX;
+                OperationModel operationModel = currentOperations.get(operationName);
 
                 operationModel.setReturnType(new ReturnTypeModel(outputShape));
 
                 ShapeModel shape = new ShapeModel(outputShape)
-                        .withType(ShapeType.Response.getValue());
+                    .withType(ShapeType.Response.getValue());
                 shape.setShapeName(outputShape);
 
-                final VariableModel outputVariable = new VariableModel(
-                        namingStrategy.getVariableName(outputShape), outputShape);
+                VariableModel outputVariable = new VariableModel(
+                    namingStrategy.getVariableName(outputShape), outputShape);
                 shape.setVariable(outputVariable);
                 shape.setUnmarshaller(new ShapeUnmarshaller());
 

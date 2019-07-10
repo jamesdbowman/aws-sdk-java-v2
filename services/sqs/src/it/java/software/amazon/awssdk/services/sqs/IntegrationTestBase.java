@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,31 +15,28 @@
 
 package software.amazon.awssdk.services.sqs;
 
-import java.nio.ByteBuffer;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import org.junit.Before;
-import org.junit.BeforeClass;
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.iam.IAMClient;
+import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.iam.model.GetUserRequest;
 import software.amazon.awssdk.services.sqs.model.CreateQueueRequest;
 import software.amazon.awssdk.services.sqs.model.CreateQueueResponse;
 import software.amazon.awssdk.services.sqs.model.MessageAttributeValue;
-import software.amazon.awssdk.test.AwsTestBase;
-import software.amazon.awssdk.util.StringUtils;
+import software.amazon.awssdk.testutils.service.AwsIntegrationTestBase;
+import software.amazon.awssdk.utils.StringUtils;
 
 /**
  * Base class for SQS integration tests. Provides convenience methods for creating test data, and
  * automatically loads AWS credentials from a properties file on disk and instantiates clients for
  * the individual tests to use.
- *
- * @author Jason Fulghum fulghum@amazon.com
  */
-public class IntegrationTestBase extends AwsTestBase {
+public class IntegrationTestBase extends AwsIntegrationTestBase {
 
     /**
      * Random number used for naming message attributes.
@@ -48,12 +45,12 @@ public class IntegrationTestBase extends AwsTestBase {
     /**
      * The Async SQS client for all tests to use.
      */
-    protected SQSAsyncClient sqsAsync;
+    protected SqsAsyncClient sqsAsync;
 
     /**
      * The Sync SQS client for all tests to use.
      */
-    protected SQSClient sqsSync;
+    protected SqsClient sqsSync;
 
     /**
      * Account ID of the AWS Account identified by the credentials provider setup in AWSTestBase.
@@ -71,17 +68,15 @@ public class IntegrationTestBase extends AwsTestBase {
         sqsSync = createSqsSyncClient();
     }
 
-    public static SQSAsyncClient createSqsAyncClient() {
-        return SQSAsyncClient.builder()
-                .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
-                .region(Region.US_EAST_1)
+    public static SqsAsyncClient createSqsAyncClient() {
+        return SqsAsyncClient.builder()
+                .credentialsProvider(getCredentialsProvider())
                 .build();
     }
 
-    public static SQSClient createSqsSyncClient() {
-        return SQSClient.builder()
-                .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
-                .region(Region.US_EAST_1)
+    public static SqsClient createSqsSyncClient() {
+        return SqsClient.builder()
+                .credentialsProvider(getCredentialsProvider())
                 .build();
     }
 
@@ -96,7 +91,7 @@ public class IntegrationTestBase extends AwsTestBase {
     protected static MessageAttributeValue createRandomBinaryAttributeValue() {
         byte[] randomBytes = new byte[10];
         random.nextBytes(randomBytes);
-        return MessageAttributeValue.builder().dataType("Binary").binaryValue(ByteBuffer.wrap(randomBytes)).build();
+        return MessageAttributeValue.builder().dataType("Binary").binaryValue(SdkBytes.fromByteArray(randomBytes)).build();
     }
 
     protected static Map<String, MessageAttributeValue> createRandomAttributeValues(int attrNumber) {
@@ -127,7 +122,7 @@ public class IntegrationTestBase extends AwsTestBase {
      *
      * @return The queue url for the created queue
      */
-    protected String createQueue(SQSAsyncClient sqsClient) {
+    protected String createQueue(SqsAsyncClient sqsClient) {
         CreateQueueResponse res = sqsClient.createQueue(CreateQueueRequest.builder().queueName(getUniqueQueueName()).build()).join();
         return res.queueUrl();
     }
@@ -144,7 +139,7 @@ public class IntegrationTestBase extends AwsTestBase {
      */
     protected String getAccountId() {
         if (accountId == null) {
-            IAMClient iamClient = IAMClient.builder()
+            IamClient iamClient = IamClient.builder()
                     .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
                     .region(Region.AWS_GLOBAL)
                     .build();
@@ -162,7 +157,7 @@ public class IntegrationTestBase extends AwsTestBase {
      */
     private String parseAccountIdFromArn(String arn) throws IllegalArgumentException {
         String[] arnComponents = arn.split(":");
-        if (arnComponents.length < 5 || StringUtils.isNullOrEmpty(arnComponents[4])) {
+        if (arnComponents.length < 5 || StringUtils.isEmpty(arnComponents[4])) {
             throw new IllegalArgumentException(String.format("%s is not a valid ARN", arn));
         }
         return arnComponents[4];

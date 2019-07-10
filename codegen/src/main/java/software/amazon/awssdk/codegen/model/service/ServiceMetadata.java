@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 
 package software.amazon.awssdk.codegen.model.service;
 
+import java.util.Map;
+
 public class ServiceMetadata {
 
     private String apiVersion;
@@ -26,6 +28,8 @@ public class ServiceMetadata {
     private String serviceAbbreviation;
 
     private String serviceFullName;
+
+    private String serviceId;
 
     private String xmlNamespace;
 
@@ -40,6 +44,8 @@ public class ServiceMetadata {
     private String targetPrefix;
 
     private String uid;
+
+    private Map<String, String> protocolSettings;
 
     public String getApiVersion() {
         return apiVersion;
@@ -138,5 +144,21 @@ public class ServiceMetadata {
 
     public void setUid(String uid) {
         this.uid = uid;
+    }
+
+    public Map<String, String> getProtocolSettings() {
+        return protocolSettings;
+    }
+
+    public void setProtocolSettings(Map<String, String> protocolSettings) {
+        this.protocolSettings = protocolSettings;
+    }
+
+    public String getServiceId() {
+        return serviceId;
+    }
+
+    public void setServiceId(String serviceId) {
+        this.serviceId = serviceId;
     }
 }

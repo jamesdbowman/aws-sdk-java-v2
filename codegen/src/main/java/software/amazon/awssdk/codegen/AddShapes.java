@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,15 +15,8 @@
 
 package software.amazon.awssdk.codegen;
 
-import static software.amazon.awssdk.codegen.internal.DocumentationUtils.generateGetterDocumentation;
-import static software.amazon.awssdk.codegen.internal.DocumentationUtils.generateSetterDocumentation;
-import static software.amazon.awssdk.codegen.internal.TypeUtils.LIST_DEFAULT_IMPL;
-import static software.amazon.awssdk.codegen.internal.TypeUtils.LIST_INTERFACE;
-import static software.amazon.awssdk.codegen.internal.TypeUtils.MAP_DEFAULT_IMPL;
-import static software.amazon.awssdk.codegen.internal.TypeUtils.MAP_INTERFACE;
 import static software.amazon.awssdk.codegen.internal.TypeUtils.getDataTypeMapping;
-import static software.amazon.awssdk.codegen.internal.Utils.capitialize;
-import static software.amazon.awssdk.codegen.internal.Utils.isEnumShape;
+import static software.amazon.awssdk.codegen.internal.Utils.capitalize;
 import static software.amazon.awssdk.codegen.internal.Utils.isListShape;
 import static software.amazon.awssdk.codegen.internal.Utils.isMapShape;
 import static software.amazon.awssdk.codegen.internal.Utils.isScalar;
@@ -46,7 +39,8 @@ import software.amazon.awssdk.codegen.model.service.Member;
 import software.amazon.awssdk.codegen.model.service.ServiceModel;
 import software.amazon.awssdk.codegen.model.service.Shape;
 import software.amazon.awssdk.codegen.naming.NamingStrategy;
-import software.amazon.awssdk.util.StringUtils;
+import software.amazon.awssdk.utils.StringUtils;
+import software.amazon.awssdk.utils.Validate;
 
 abstract class AddShapes {
 
@@ -75,9 +69,9 @@ abstract class AddShapes {
     }
 
     protected final ShapeModel generateShapeModel(String javaClassName, String shapeName) {
-        final ShapeModel shapeModel = new ShapeModel(shapeName);
+        ShapeModel shapeModel = new ShapeModel(shapeName);
         shapeModel.setShapeName(javaClassName);
-        final Shape shape = getServiceModel().getShapes().get(shapeName);
+        Shape shape = getServiceModel().getShapes().get(shapeName);
 
         shapeModel.setDocumentation(shape.getDocumentation());
         shapeModel.setVariable(new VariableModel(getNamingStrategy().getVariableName(javaClassName),
@@ -86,13 +80,16 @@ abstract class AddShapes {
         shapeModel.setRequired(shape.getRequired());
         shapeModel.setDeprecated(shape.isDeprecated());
         shapeModel.setWrapper(shape.isWrapper());
+        shapeModel.withIsEventStream(shape.isEventStream());
+        shapeModel.withIsEvent(shape.isEvent());
 
         boolean hasHeaderMember = false;
         boolean hasStatusCodeMember = false;
         boolean hasPayloadMember = false;
         boolean hasStreamingMember = false;
+        boolean hasRequiresLength = false;
 
-        final Map<String, Member> members = shape.getMembers();
+        Map<String, Member> members = shape.getMembers();
 
         if (members != null) {
             for (Map.Entry<String, Member> memberEntry : members.entrySet()) {
@@ -116,22 +113,24 @@ abstract class AddShapes {
                     if (memberModel.getHttp().getIsStreaming()) {
                         hasStreamingMember = true;
                     }
+                    if (memberModel.getHttp().isRequiresLength()) {
+                        hasRequiresLength = true;
+                    }
                 }
 
                 shapeModel.addMember(memberModel);
             }
 
             shapeModel.withHasHeaderMember(hasHeaderMember)
-                    .withHasStatusCodeMember(hasStatusCodeMember)
-                    .withHasPayloadMember(hasPayloadMember)
-                    .withHasStreamingMember(hasStreamingMember);
+                      .withHasStatusCodeMember(hasStatusCodeMember)
+                      .withHasPayloadMember(hasPayloadMember)
+                      .withHasStreamingMember(hasStreamingMember)
+                      .withHasRequiresLengthMember(hasRequiresLength);
         }
 
-        final List<String> enumValues = shape.getEnumValues();
+        List<String> enumValues = shape.getEnumValues();
         if (enumValues != null && !enumValues.isEmpty()) {
             for (String enumValue : enumValues) {
-                // TODO handle useRealName if explicitly mentioned in
-                // the customization.
                 shapeModel.addEnum(
                         new EnumModel(getNamingStrategy().getEnumValueName(enumValue), enumValue));
             }
@@ -143,10 +142,11 @@ abstract class AddShapes {
     private MemberModel generateMemberModel(String c2jMemberName, Member c2jMemberDefinition,
                                             String protocol, Shape parentShape,
                                             Map<String, Shape> allC2jShapes) {
-        final String c2jShapeName = c2jMemberDefinition.getShape();
-        final String variableName = getNamingStrategy().getVariableName(c2jMemberName);
-        final String variableType = getTypeUtils().getJavaDataType(allC2jShapes, c2jShapeName);
-        final String variableDeclarationType = getTypeUtils()
+        String c2jShapeName = c2jMemberDefinition.getShape();
+        Shape shape = allC2jShapes.get(c2jShapeName);
+        String variableName = getNamingStrategy().getVariableName(c2jMemberName);
+        String variableType = getTypeUtils().getJavaDataType(allC2jShapes, c2jShapeName);
+        String variableDeclarationType = getTypeUtils()
                 .getJavaDataType(allC2jShapes, c2jShapeName, getCustomizationConfig());
 
         //If member is idempotent, then it should be of string type
@@ -159,23 +159,31 @@ abstract class AddShapes {
         }
 
 
-        final MemberModel memberModel = new MemberModel();
+        MemberModel memberModel = new MemberModel();
 
-        memberModel.withC2jName(c2jMemberName).withC2jShape(c2jShapeName)
-                .withName(capitialize(c2jMemberName)).withVariable(
-                new VariableModel(variableName, variableType, variableDeclarationType)
-                        .withDocumentation(c2jMemberDefinition.getDocumentation())).withSetterModel(
-                new VariableModel(variableName, variableType, variableDeclarationType)
-                        .withDocumentation(generateSetterDocumentation())).withGetterModel(
-                new ReturnTypeModel(variableType).withDocumentation(generateGetterDocumentation()));
+        memberModel.withC2jName(c2jMemberName)
+                   .withC2jShape(c2jShapeName)
+                   .withName(capitalize(c2jMemberName))
+                   .withVariable(new VariableModel(variableName, variableType, variableDeclarationType)
+                                         .withDocumentation(c2jMemberDefinition.getDocumentation()))
+                   .withSetterModel(new VariableModel(variableName, variableType, variableDeclarationType))
+                   .withGetterModel(new ReturnTypeModel(variableType))
+                   .withTimestampFormat(resolveTimestampFormat(c2jMemberDefinition, shape))
+                   .withJsonValue(c2jMemberDefinition.getJsonValue());
         memberModel.setDocumentation(c2jMemberDefinition.getDocumentation());
         memberModel.setDeprecated(c2jMemberDefinition.isDeprecated());
+        memberModel.setSensitive(isSensitiveShapeOrContainer(c2jMemberDefinition, allC2jShapes));
         memberModel
-                .withFluentGetterMethodName(namingStrategy.getFluentGetterMethodName(c2jMemberName))
-                .withFluentSetterMethodName(namingStrategy.getFluentSetterMethodName(c2jMemberName))
-                .withBeanStyleGetterMethodName(namingStrategy.getBeanStyleGetterMethodName(c2jMemberName))
-                .withBeanStyleSetterMethodName(namingStrategy.getBeanStyleSetterMethodName(c2jMemberName));
+                .withFluentGetterMethodName(namingStrategy.getFluentGetterMethodName(c2jMemberName, parentShape, shape))
+                .withFluentEnumGetterMethodName(namingStrategy.getFluentEnumGetterMethodName(c2jMemberName, parentShape, shape))
+                .withFluentSetterMethodName(namingStrategy.getFluentSetterMethodName(c2jMemberName, parentShape, shape))
+                .withFluentEnumSetterMethodName(namingStrategy.getFluentEnumSetterMethodName(c2jMemberName, parentShape, shape))
+                .withBeanStyleGetterMethodName(namingStrategy.getBeanStyleGetterMethodName(c2jMemberName, parentShape, shape))
+                .withBeanStyleSetterMethodName(namingStrategy.getBeanStyleSetterMethodName(c2jMemberName, parentShape, shape));
         memberModel.setIdempotencyToken(c2jMemberDefinition.isIdempotencyToken());
+        memberModel.setEventPayload(c2jMemberDefinition.isEventPayload());
+        memberModel.setEventHeader(c2jMemberDefinition.isEventHeader());
+        memberModel.setEndpointDiscoveryId(c2jMemberDefinition.isEndpointDiscoveryId());
 
         // Pass the xmlNameSpace from the member reference
         if (c2jMemberDefinition.getXmlNamespace() != null) {
@@ -186,24 +194,51 @@ abstract class AddShapes {
         fillContainerTypeMemberMetadata(allC2jShapes, c2jMemberDefinition.getShape(), memberModel,
                                         protocol);
 
-        final ParameterHttpMapping httpMapping = generateParameterHttpMapping(parentShape,
+        ParameterHttpMapping httpMapping = generateParameterHttpMapping(parentShape,
                                                                               c2jMemberName,
                                                                               c2jMemberDefinition,
                                                                               protocol,
                                                                               allC2jShapes);
 
-        final String payload = parentShape.getPayload();
+        String payload = parentShape.getPayload();
 
-        boolean shapeIsStreaming = allC2jShapes.get(c2jMemberDefinition.getShape()).isStreaming();
+        boolean shapeIsStreaming = shape.isStreaming();
         boolean memberIsStreaming = c2jMemberDefinition.isStreaming();
         boolean payloadIsStreaming = shapeIsStreaming || memberIsStreaming;
+        boolean requiresLength = shape.isRequiresLength() || c2jMemberDefinition.isRequiresLength();
 
         httpMapping.withPayload(payload != null && payload.equals(c2jMemberName))
-                .withStreaming(payloadIsStreaming);
+                   .withStreaming(payloadIsStreaming)
+                   .withRequiresLength(requiresLength);
 
         memberModel.setHttp(httpMapping);
 
         return memberModel;
+    }
+
+    private boolean isSensitiveShapeOrContainer(Member member, Map<String, Shape> allC2jShapes) {
+        if (member == null) {
+            return false;
+        }
+
+        return member.isSensitive() ||
+               isSensitiveShapeOrContainer(allC2jShapes.get(member.getShape()), allC2jShapes);
+    }
+
+    private boolean isSensitiveShapeOrContainer(Shape c2jShape, Map<String, Shape> allC2jShapes) {
+        if (c2jShape == null) {
+            return false;
+        }
+
+        return c2jShape.isSensitive() ||
+               isSensitiveShapeOrContainer(c2jShape.getListMember(), allC2jShapes) ||
+               isSensitiveShapeOrContainer(c2jShape.getMapKeyType(), allC2jShapes) ||
+               isSensitiveShapeOrContainer(c2jShape.getMapValueType(), allC2jShapes);
+    }
+
+    private String resolveTimestampFormat(Member c2jMemberDefinition, Shape c2jShape) {
+        return c2jMemberDefinition.getTimestampFormat() != null ?
+               c2jMemberDefinition.getTimestampFormat() : c2jShape.getTimestampFormat();
     }
 
     private ParameterHttpMapping generateParameterHttpMapping(Shape parentShape,
@@ -215,16 +250,20 @@ abstract class AddShapes {
         ParameterHttpMapping mapping = new ParameterHttpMapping();
 
         Shape memberShape = allC2jShapes.get(member.getShape());
-
         mapping.withLocation(Location.forValue(member.getLocation()))
-                .withPayload(member.isPayload()).withStreaming(member.isStreaming())
-                .withFlattened(member.isFlattened() || memberShape.isFlattened())
-                .withUnmarshallLocationName(deriveUnmarshallerLocationName(memberName, member))
-                .withMarshallLocationName(
-                        deriveMarshallerLocationName(memberName, member, protocol))
-                .withIsGreedy(isGreedy(parentShape, allC2jShapes, mapping));
+               .withPayload(member.isPayload()).withStreaming(member.isStreaming())
+               .withFlattened(isFlattened(member, memberShape))
+               .withUnmarshallLocationName(deriveUnmarshallerLocationName(memberShape, memberName, member))
+               .withMarshallLocationName(
+                        deriveMarshallerLocationName(memberShape, memberName, member, protocol))
+               .withIsGreedy(isGreedy(parentShape, allC2jShapes, mapping));
 
         return mapping;
+    }
+
+    private boolean isFlattened(Member member, Shape memberShape) {
+        return member.isFlattened()
+               || memberShape.isFlattened();
     }
 
     /**
@@ -236,7 +275,7 @@ abstract class AddShapes {
     private boolean isGreedy(Shape parentShape, Map<String, Shape> allC2jShapes, ParameterHttpMapping mapping) {
         if (mapping.getLocation() == Location.URI) {
             // If the location is URI we can assume the parent shape is an input shape.
-            final String requestUri = findRequestUri(parentShape, allC2jShapes);
+            String requestUri = findRequestUri(parentShape, allC2jShapes);
             if (requestUri.contains(String.format("{%s+}", mapping.getMarshallLocationName()))) {
                 return true;
             }
@@ -260,85 +299,98 @@ abstract class AddShapes {
                 .findFirst().orElseThrow(() -> new RuntimeException("Could not find request URI for input shape"));
     }
 
-    private String deriveUnmarshallerLocationName(String memberName, Member member) {
+    private String deriveUnmarshallerLocationName(Shape memberShape, String memberName, Member member) {
+        String locationName;
+        if (memberShape.getListMember() != null && memberShape.isFlattened()) {
+            locationName = deriveLocationNameForListMember(memberShape, member);
+        } else {
+            locationName = member.getLocationName();
+        }
 
-        final String locationName = member.getLocationName();
-
-        if (locationName != null && !locationName.trim().isEmpty()) {
+        if (StringUtils.isNotBlank(locationName)) {
             return locationName;
         }
 
         return memberName;
     }
 
-    private String deriveMarshallerLocationName(String memberName, Member member, String protocol) {
-        final String queryName = member.getQueryName();
-        if (queryName != null && !queryName.trim().isEmpty()) {
+    private String deriveMarshallerLocationName(Shape memberShape, String memberName, Member member, String protocol) {
+        String queryName = member.getQueryName();
+
+        if (StringUtils.isNotBlank(queryName)) {
             return queryName;
-        } else {
-            final String locationName = member.getLocationName();
-            if (locationName != null && !locationName.trim().isEmpty()) {
-                if (protocol.equals(Protocol.EC2.getValue())) {
-                    return StringUtils.upperCase(locationName.substring(0, 1)) +
-                           locationName.substring(1);
-                }
-                return locationName;
-            } else {
-                return memberName;
-            }
         }
+
+        String locationName;
+
+        if (Protocol.EC2.getValue().equalsIgnoreCase(protocol)) {
+            locationName = deriveLocationNameForEc2(member);
+        } else if (memberShape.getListMember() != null && memberShape.isFlattened()) {
+            locationName =  deriveLocationNameForListMember(memberShape, member);
+        } else {
+            locationName = member.getLocationName();
+        }
+
+        if (StringUtils.isNotBlank(locationName)) {
+            return locationName;
+        }
+
+        return memberName;
+    }
+
+    private String deriveLocationNameForEc2(Member member) {
+        String locationName = member.getLocationName();
+
+        if (StringUtils.isNotBlank(locationName)) {
+            return StringUtils.upperCase(locationName.substring(0, 1)) +
+                   locationName.substring(1);
+        }
+
+        return null;
+    }
+
+    private String deriveLocationNameForListMember(Shape memberShape, Member member) {
+        String locationName = memberShape.getListMember().getLocationName();
+
+        if (StringUtils.isNotBlank(locationName)) {
+            return locationName;
+        }
+
+        return member.getLocationName();
     }
 
     private void fillContainerTypeMemberMetadata(Map<String, Shape> c2jShapes,
                                                  String memberC2jShapeName, MemberModel memberModel,
                                                  String protocol) {
 
-        final Shape memberC2jShape = c2jShapes.get(memberC2jShapeName);
+        Shape memberC2jShape = c2jShapes.get(memberC2jShapeName);
 
         if (isListShape(memberC2jShape)) {
-
-            MemberModel listMemberModel;
-
             Member listMemberDefinition = memberC2jShape.getListMember();
             String listMemberC2jShapeName = listMemberDefinition.getShape();
-            Shape listMemberC2jShape = c2jShapes.get(listMemberC2jShapeName);
 
-            listMemberModel = generateMemberModel("member", listMemberDefinition, protocol,
-                                                  memberC2jShape, c2jShapes);
-            final String listImpl = getDataTypeMapping(LIST_DEFAULT_IMPL);
+            MemberModel listMemberModel = generateMemberModel("member", listMemberDefinition, protocol,
+                                                              memberC2jShape, c2jShapes);
+            String listImpl = getDataTypeMapping(TypeUtils.TypeKey.LIST_DEFAULT_IMPL);
             memberModel.setListModel(
                     new ListModel(getTypeUtils().getJavaDataType(c2jShapes, listMemberC2jShapeName),
                                   memberC2jShape.getListMember().getLocationName(), listImpl,
-                                  getDataTypeMapping(LIST_INTERFACE), listMemberModel));
-
-            if (listMemberC2jShape.getEnumValues() != null) {
-                memberModel
-                        .setEnumType(getNamingStrategy().getJavaClassName(listMemberC2jShapeName));
-            }
+                                  getDataTypeMapping(TypeUtils.TypeKey.LIST_INTERFACE), listMemberModel));
         } else if (isMapShape(memberC2jShape)) {
-
-            MemberModel mapKeyModel = null;
-            MemberModel mapValueModel;
-
             Member mapKeyMemberDefinition = memberC2jShape.getMapKeyType();
             String mapKeyShapeName = mapKeyMemberDefinition.getShape();
             Shape mapKeyShape = c2jShapes.get(mapKeyShapeName);
 
             Member mapValueMemberDefinition = memberC2jShape.getMapValueType();
 
-            // Only construct the nested key model if the key of the map
-            // itself is Enum shape. Throw exception if the nested key type is complex
-            // because we don't support complex map keys.
-            if (isEnumShape(mapKeyShape)) {
-                mapKeyModel = generateMemberModel("key", mapKeyMemberDefinition, protocol,
-                                                  memberC2jShape, c2jShapes);
-            } else if (!isScalar(mapKeyShape)) {
-                throw new IllegalStateException(
-                        "The key type of " + mapKeyShapeName + " must be a scalar!");
-            }
-            mapValueModel = generateMemberModel("value", mapValueMemberDefinition, protocol,
-                                                memberC2jShape, c2jShapes);
-            final String mapImpl = getDataTypeMapping(MAP_DEFAULT_IMPL);
+            // Complex map keys are not supported.
+            Validate.isTrue(isScalar(mapKeyShape), "The key type of %s must be a scalar!", mapKeyShapeName);
+
+            MemberModel mapKeyModel = generateMemberModel("key", mapKeyMemberDefinition, protocol,
+                                                          memberC2jShape, c2jShapes);
+            MemberModel mapValueModel = generateMemberModel("value", mapValueMemberDefinition, protocol,
+                                                            memberC2jShape, c2jShapes);
+            String mapImpl = getDataTypeMapping(TypeUtils.TypeKey.MAP_DEFAULT_IMPL);
 
             String keyLocation = memberC2jShape.getMapKeyType().getLocationName() != null ?
                     memberC2jShape.getMapKeyType().getLocationName() : "key";
@@ -346,15 +398,12 @@ abstract class AddShapes {
             String valueLocation = memberC2jShape.getMapValueType().getLocationName() != null ?
                     memberC2jShape.getMapValueType().getLocationName() : "value";
 
-            memberModel.setMapModel(new MapModel(mapImpl, getDataTypeMapping(MAP_INTERFACE),
-                                                 getTypeUtils().getJavaDataType(c2jShapes,
-                                                                                memberC2jShape
-                                                                                        .getMapKeyType()
-                                                                                        .getShape()),
-                                                 keyLocation, mapKeyModel, getTypeUtils()
-                                                         .getJavaDataType(c2jShapes, memberC2jShape
-                                                                 .getMapValueType().getShape()),
-                                                 valueLocation, mapValueModel));
+            memberModel.setMapModel(new MapModel(mapImpl,
+                                                 getDataTypeMapping(TypeUtils.TypeKey.MAP_INTERFACE),
+                                                 keyLocation,
+                                                 mapKeyModel,
+                                                 valueLocation,
+                                                 mapValueModel));
 
         } else if (memberC2jShape.getEnumValues() != null) { // enum values
             memberModel.withEnumType(getNamingStrategy().getJavaClassName(memberC2jShapeName));

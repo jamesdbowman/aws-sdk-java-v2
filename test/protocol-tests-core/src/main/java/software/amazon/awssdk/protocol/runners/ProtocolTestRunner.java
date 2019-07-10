@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -23,15 +23,15 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.codegen.model.intermediate.IntermediateModel;
+import software.amazon.awssdk.core.util.IdempotentUtils;
 import software.amazon.awssdk.protocol.model.TestCase;
 import software.amazon.awssdk.protocol.reflect.ClientReflector;
 import software.amazon.awssdk.protocol.wiremock.WireMockUtils;
-import software.amazon.awssdk.util.IdempotentUtils;
 
 /**
  * Runs a list of test cases (either marshalling or unmarshalling).
  */
-public class ProtocolTestRunner {
+public final class ProtocolTestRunner {
 
     private static final Logger log = LoggerFactory.getLogger(ProtocolTestRunner.class);
     private static final ObjectMapper MAPPER = new ObjectMapper()
@@ -44,7 +44,7 @@ public class ProtocolTestRunner {
 
     public ProtocolTestRunner(String intermediateModelLocation) {
         WireMockUtils.startWireMockServer();
-        final IntermediateModel model = loadModel(intermediateModelLocation);
+        IntermediateModel model = loadModel(intermediateModelLocation);
         this.clientReflector = new ClientReflector(model);
         this.marshallingTestRunner = new MarshallingTestRunner(model, clientReflector);
         this.unmarshallingTestRunner = new UnmarshallingTestRunner(model, clientReflector);
@@ -75,5 +75,6 @@ public class ProtocolTestRunner {
                             "Unsupported action " + testCase.getWhen().getAction());
             }
         }
+        clientReflector.close();
     }
 }

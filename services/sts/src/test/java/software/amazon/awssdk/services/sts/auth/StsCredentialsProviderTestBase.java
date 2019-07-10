@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@ import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
-import software.amazon.awssdk.auth.AwsSessionCredentials;
-import software.amazon.awssdk.services.sts.STSClient;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
+import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.model.Credentials;
 
 /**
@@ -37,7 +37,7 @@ import software.amazon.awssdk.services.sts.model.Credentials;
 @RunWith(MockitoJUnitRunner.class)
 public abstract class StsCredentialsProviderTestBase<RequestT, ResponseT> {
     @Mock
-    private STSClient stsClient;
+    protected StsClient stsClient;
 
     @Test
     public void cachingDoesNotApplyToExpiredSession() {
@@ -68,9 +68,9 @@ public abstract class StsCredentialsProviderTestBase<RequestT, ResponseT> {
     protected abstract ResponseT getResponse(Credentials credentials);
 
     protected abstract StsCredentialsProvider.BaseBuilder<?, ? extends StsCredentialsProvider>
-            createCredentialsProviderBuilder(RequestT request);
+    createCredentialsProviderBuilder(RequestT request);
 
-    protected abstract ResponseT callClient(STSClient client, RequestT request);
+    protected abstract ResponseT callClient(StsClient client, RequestT request);
 
     public void callClientWithCredentialsProvider(Instant credentialsExpirationDate, int numTimesInvokeCredentialsProvider) {
         Credentials credentials = Credentials.builder().accessKeyId("a").secretAccessKey("b").sessionToken("c").expiration(credentialsExpirationDate).build();
@@ -80,8 +80,8 @@ public abstract class StsCredentialsProviderTestBase<RequestT, ResponseT> {
         when(callClient(stsClient, request)).thenReturn(response);
 
         try (StsCredentialsProvider credentialsProvider = createCredentialsProviderBuilder(request).stsClient(stsClient).build()) {
-            for(int i = 0; i < numTimesInvokeCredentialsProvider; ++i) {
-                AwsSessionCredentials providedCredentials = (AwsSessionCredentials) credentialsProvider.getCredentials();
+            for (int i = 0; i < numTimesInvokeCredentialsProvider; ++i) {
+                AwsSessionCredentials providedCredentials = (AwsSessionCredentials) credentialsProvider.resolveCredentials();
                 assertThat(providedCredentials.accessKeyId()).isEqualTo("a");
                 assertThat(providedCredentials.secretAccessKey()).isEqualTo("b");
                 assertThat(providedCredentials.sessionToken()).isEqualTo("c");

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,13 +15,13 @@
 
 package software.amazon.awssdk.utils;
 
-import software.amazon.awssdk.annotation.SdkProtectedApi;
+import software.amazon.awssdk.annotations.SdkPublicApi;
 
 /**
  * An implementation of {@link AutoCloseable} that does not throw any checked exceptions. The SDK does not throw checked
  * exceptions in its close() methods, so users of the SDK should not need to handle them.
  */
-@SdkProtectedApi
+@SdkPublicApi
 // CHECKSTYLE:OFF - This is the only place we're allowed to use AutoCloseable
 public interface SdkAutoCloseable extends AutoCloseable {
     // CHECKSTYLE:ON

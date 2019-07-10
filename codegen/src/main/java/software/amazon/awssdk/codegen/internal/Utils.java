@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,16 +15,17 @@
 
 package software.amazon.awssdk.codegen.internal;
 
-import static java.util.stream.Collectors.joining;
-import static software.amazon.awssdk.codegen.internal.Constants.LOGGER;
+import static java.util.stream.Collectors.toList;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.stream.Stream;
-import software.amazon.awssdk.codegen.model.config.customization.CustomizationConfig;
+import java.util.List;
+import java.util.Map;
 import software.amazon.awssdk.codegen.model.intermediate.IntermediateModel;
+import software.amazon.awssdk.codegen.model.intermediate.MapModel;
+import software.amazon.awssdk.codegen.model.intermediate.MemberModel;
 import software.amazon.awssdk.codegen.model.intermediate.Metadata;
 import software.amazon.awssdk.codegen.model.intermediate.ShapeMarshaller;
 import software.amazon.awssdk.codegen.model.intermediate.ShapeModel;
@@ -34,9 +35,13 @@ import software.amazon.awssdk.codegen.model.service.ServiceMetadata;
 import software.amazon.awssdk.codegen.model.service.ServiceModel;
 import software.amazon.awssdk.codegen.model.service.Shape;
 import software.amazon.awssdk.codegen.model.service.XmlNamespace;
+import software.amazon.awssdk.utils.IoUtils;
 import software.amazon.awssdk.utils.StringUtils;
 
-public class Utils {
+public final class Utils {
+
+    private Utils() {
+    }
 
     public static boolean isScalar(Shape shape) {
         // enums are treated as scalars in C2j.
@@ -63,74 +68,39 @@ public class Utils {
         return shape.isException() || shape.isFault();
     }
 
-    public static String getServiceName(ServiceMetadata metadata, CustomizationConfig customizationConfig) {
-        String baseName = metadata.getServiceAbbreviation() == null ?
-                metadata.getServiceFullName() :
-                metadata.getServiceAbbreviation();
+    public static boolean isOrContainsEnumShape(Shape shape, Map<String, Shape> allShapes) {
+        boolean isEnum = isEnumShape(shape);
+        boolean isMapWithEnumMember = isMapShape(shape)
+             && (isOrContainsEnumShape(allShapes.get(shape.getMapKeyType().getShape()), allShapes)
+                 || isOrContainsEnumShape(allShapes.get(shape.getMapValueType().getShape()), allShapes));
+        boolean isListWithEnumMember = isListShape(shape)
+             && isOrContainsEnumShape(allShapes.get(shape.getListMember().getShape()), allShapes);
 
-        baseName = baseName.replace("Amazon", "");
-        baseName = baseName.replace("AWS", "");
-        baseName = baseName.trim();
-        baseName = baseName.replaceAll("[^A-Za-z0-9]", "");
-
-        if (baseName.endsWith("Service")) {
-            baseName = baseName.replace("Service", "");
-        }
-
-        return baseName;
+        return isEnum || isMapWithEnumMember || isListWithEnumMember;
     }
 
-    public static String pascalCase(String baseName) {
-        return Stream.of(baseName.split("\\s+")).map(StringUtils::lowerCase).map(Utils::capitialize).collect(joining());
+    public static boolean isOrContainsEnum(MemberModel member) {
+        boolean isEnum = member.getEnumType() != null;
+        return isEnum || isMapWithEnumShape(member) || isListWithEnumShape(member);
     }
 
-    public static String getClientPackageName(String serviceName, CustomizationConfig customizationConfig) {
-        return getCustomizedPackageName(serviceName,
-                                        Constants.PACKAGE_NAME_CLIENT_PATTERN);
+    public static boolean isListWithEnumShape(MemberModel member) {
+        return member.isList() && member.getListModel().getListMemberModel().getEnumType() != null;
     }
 
-    public static String getModelPackageName(String serviceName, CustomizationConfig customizationConfig) {
-        // Share transform package classes if we are sharing models.
-        if (customizationConfig.getShareModelsWith() != null) {
-            serviceName = customizationConfig.getShareModelsWith();
-        }
-        return getCustomizedPackageName(serviceName,
-                                        Constants.PACKAGE_NAME_MODEL_PATTERN);
+    public static boolean isMapWithEnumShape(MemberModel member) {
+        return member.isMap() && (isMapKeyWithEnumShape(member.getMapModel()) || isMapValueWithEnumShape(member.getMapModel()));
     }
 
-    public static String getTransformPackageName(String serviceName, CustomizationConfig customizationConfig) {
-        // Share transform package classes if we are sharing models.
-        if (customizationConfig.getShareModelsWith() != null) {
-            serviceName = customizationConfig.getShareModelsWith();
-        }
-        return getRequestTransformPackageName(serviceName, customizationConfig);
+    public static boolean isMapKeyWithEnumShape(MapModel mapModel) {
+        return mapModel.getKeyModel().getEnumType() != null;
     }
 
-    public static String getRequestTransformPackageName(String serviceName, CustomizationConfig customizationConfig) {
-        return getCustomizedPackageName(serviceName,
-                                        Constants.PACKAGE_NAME_TRANSFORM_PATTERN);
+    public static boolean isMapValueWithEnumShape(MapModel mapModel) {
+        return mapModel.getValueModel().getEnumType() != null;
     }
 
-    public static String getWaitersPackageName(String serviceName, CustomizationConfig customizationConfig) {
-        return getCustomizedPackageName(serviceName,
-                                        Constants.PACKAGE_NAME_WAITERS_PATTERN);
-    }
-
-    public static String getSmokeTestPackageName(String serviceName, CustomizationConfig customizationConfig) {
-        return getCustomizedPackageName(serviceName,
-                                        Constants.PACKAGE_NAME_SMOKE_TEST_PATTERN);
-    }
-
-    public static String getAuthPolicyPackageName(String serviceName, CustomizationConfig customizationConfig) {
-        return getCustomizedPackageName(serviceName,
-                                        Constants.PACKAGE_NAME_CUSTOM_AUTH_PATTERN);
-    }
-
-    private static String getCustomizedPackageName(String serviceName, String defaultPattern) {
-        return String.format(defaultPattern, StringUtils.lowerCase(serviceName));
-    }
-
-    public static String unCapitialize(String name) {
+    public static String unCapitalize(String name) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("Name cannot be null or empty");
         }
@@ -148,12 +118,32 @@ public class Utils {
         return sb.toString();
     }
 
-    public static String capitialize(String name) {
+    public static String capitalize(String name) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("Name cannot be null or empty");
         }
         return name.length() < 2 ? StringUtils.upperCase(name) : StringUtils.upperCase(name.substring(0, 1))
                 + name.substring(1);
+    }
+
+    public static String removeLeading(String str, String toRemove) {
+        if (str == null) {
+            return null;
+        }
+        if (str.startsWith(toRemove)) {
+            return str.substring(toRemove.length());
+        }
+        return str;
+    }
+
+    public static String removeTrailing(String str, String toRemove) {
+        if (str == null) {
+            return null;
+        }
+        if (str.endsWith(toRemove)) {
+            return str.substring(0, str.length() - toRemove.length());
+        }
+        return str;
     }
 
     /**
@@ -204,7 +194,7 @@ public class Utils {
                     "Invalid path directory. Path directory cannot be null or empty");
         }
 
-        final File dir = new File(path);
+        File dir = new File(path);
         createDirectory(dir);
         return dir;
     }
@@ -244,15 +234,7 @@ public class Utils {
     }
 
     public static void closeQuietly(Closeable closeable) {
-        if (closeable == null) {
-            return;
-        }
-
-        try {
-            closeable.close();
-        } catch (Exception e) {
-            LOGGER.debug("Not able to close the stream.");
-        }
+        IoUtils.closeQuietly(closeable, null);
     }
 
     /**
@@ -307,6 +289,10 @@ public class Utils {
         return null;
     }
 
+    public static List<ShapeModel> findShapesByC2jName(IntermediateModel intermediateModel, String shapeC2jName) {
+        return intermediateModel.getShapes().values().stream().filter(s -> s.getC2jName().equals(shapeC2jName)).collect(toList());
+    }
+
     /**
      * Create the ShapeMarshaller to the input shape from the specified Operation.
      * The input shape in the operation could be empty.
@@ -331,8 +317,10 @@ public class Utils {
                 marshaller.setXmlNameSpaceUri(xmlNamespace.getUri());
             }
         }
-        if (!StringUtils.isEmpty(service.getTargetPrefix()) && Metadata.isNotRestProtocol(service.getProtocol())) {
-            marshaller.setTarget(service.getTargetPrefix() + "." + operation.getName());
+        if (Metadata.isNotRestProtocol(service.getProtocol())) {
+            marshaller.setTarget(StringUtils.isEmpty(service.getTargetPrefix()) ?
+                                 operation.getName() :
+                                 service.getTargetPrefix() + "." + operation.getName());
         }
         return marshaller;
 

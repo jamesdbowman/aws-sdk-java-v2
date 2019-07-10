@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package software.amazon.awssdk.codegen.model.service;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
+import software.amazon.awssdk.codegen.model.intermediate.EndpointDiscovery;
 
 public class Operation {
 
@@ -37,6 +38,14 @@ public class Operation {
     private List<ErrorMap> errors;
 
     private boolean requiresApiKey;
+
+    @JsonProperty("endpointdiscovery")
+    private EndpointDiscovery endpointDiscovery;
+
+    @JsonProperty("endpointoperation")
+    private boolean endpointOperation;
+
+    private EndpointTrait endpoint;
 
     @JsonProperty("authtype")
     private AuthType authType = AuthType.IAM;
@@ -134,5 +143,29 @@ public class Operation {
 
     public void setRequiresApiKey(boolean requiresApiKey) {
         this.requiresApiKey = requiresApiKey;
+    }
+
+    public EndpointDiscovery getEndpointDiscovery() {
+        return endpointDiscovery;
+    }
+
+    public void setEndpointDiscovery(EndpointDiscovery endpointDiscovery) {
+        this.endpointDiscovery = endpointDiscovery;
+    }
+
+    public boolean isEndpointOperation() {
+        return endpointOperation;
+    }
+
+    public void setEndpointOperation(boolean endpointOperation) {
+        this.endpointOperation = endpointOperation;
+    }
+
+    public EndpointTrait getEndpoint() {
+        return endpoint;
+    }
+
+    public void setEndpoint(EndpointTrait endpoint) {
+        this.endpoint = endpoint;
     }
 }

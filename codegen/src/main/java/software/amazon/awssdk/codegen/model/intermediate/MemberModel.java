@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,22 +15,21 @@
 
 package software.amazon.awssdk.codegen.model.intermediate;
 
-import static software.amazon.awssdk.codegen.internal.Constants.LF;
-import static software.amazon.awssdk.codegen.internal.DocumentationUtils.DEFAULT_FLUENT_RETURN;
-import static software.amazon.awssdk.codegen.internal.DocumentationUtils.DEFAULT_GETTER;
-import static software.amazon.awssdk.codegen.internal.DocumentationUtils.DEFAULT_GETTER_PARAM;
-import static software.amazon.awssdk.codegen.internal.DocumentationUtils.DEFAULT_SETTER;
-import static software.amazon.awssdk.codegen.internal.DocumentationUtils.DEFAULT_SETTER_PARAM;
+import static software.amazon.awssdk.codegen.internal.Constant.LF;
+import static software.amazon.awssdk.codegen.internal.DocumentationUtils.defaultFluentReturn;
+import static software.amazon.awssdk.codegen.internal.DocumentationUtils.defaultGetter;
+import static software.amazon.awssdk.codegen.internal.DocumentationUtils.defaultGetterParam;
+import static software.amazon.awssdk.codegen.internal.DocumentationUtils.defaultSetter;
+import static software.amazon.awssdk.codegen.internal.DocumentationUtils.defaultSetterParam;
 import static software.amazon.awssdk.codegen.internal.DocumentationUtils.stripHtmlTags;
-import static software.amazon.awssdk.utils.StringUtils.upperCase;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import software.amazon.awssdk.codegen.internal.TypeUtils;
-import software.amazon.awssdk.protocol.MarshallingInfo;
-import software.amazon.awssdk.runtime.transform.PathMarshallers;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.protocol.MarshallingType;
+import software.amazon.awssdk.protocols.core.PathMarshaller;
 import software.amazon.awssdk.utils.StringUtils;
 
 public class MemberModel extends DocumentationModel {
@@ -65,11 +64,27 @@ public class MemberModel extends DocumentationModel {
 
     private String fluentGetterMethodName;
 
+    private String fluentEnumGetterMethodName;
+
     private String fluentSetterMethodName;
+
+    private String fluentEnumSetterMethodName;
 
     private String beanStyleGetterName;
 
     private String beanStyleSetterName;
+
+    private boolean isJsonValue;
+
+    private String timestampFormat;
+
+    private boolean eventPayload;
+
+    private boolean eventHeader;
+
+    private boolean endpointDiscoveryId;
+
+    private boolean sensitive;
 
     public String getName() {
         return name;
@@ -149,6 +164,19 @@ public class MemberModel extends DocumentationModel {
         return this;
     }
 
+    public String getFluentEnumGetterMethodName() {
+        return fluentEnumGetterMethodName;
+    }
+
+    public void setFluentEnumGetterMethodName(String fluentEnumGetterMethodName) {
+        this.fluentEnumGetterMethodName = fluentEnumGetterMethodName;
+    }
+
+    public MemberModel withFluentEnumGetterMethodName(String fluentEnumGetterMethodName) {
+        setFluentEnumGetterMethodName(fluentEnumGetterMethodName);
+        return this;
+    }
+
     public String getBeanStyleGetterMethodName() {
         return beanStyleGetterName;
     }
@@ -204,6 +232,19 @@ public class MemberModel extends DocumentationModel {
         return this;
     }
 
+    public String getFluentEnumSetterMethodName() {
+        return fluentEnumSetterMethodName;
+    }
+
+    public void setFluentEnumSetterMethodName(String fluentEnumSetterMethodName) {
+        this.fluentEnumSetterMethodName = fluentEnumSetterMethodName;
+    }
+
+    public MemberModel withFluentEnumSetterMethodName(String fluentEnumSetterMethodName) {
+        setFluentEnumSetterMethodName(fluentEnumSetterMethodName);
+        return this;
+    }
+
     public ReturnTypeModel getGetterModel() {
         return getterModel;
     }
@@ -245,6 +286,31 @@ public class MemberModel extends DocumentationModel {
         this.deprecated = deprecated;
     }
 
+    public boolean isEventPayload() {
+        return eventPayload;
+    }
+
+    public void setEventPayload(boolean eventPayload) {
+        this.eventPayload = eventPayload;
+    }
+
+    public boolean isEventHeader() {
+        return eventHeader;
+    }
+
+    public void setEventHeader(boolean eventHeader) {
+        this.eventHeader = eventHeader;
+    }
+
+
+    public boolean isEndpointDiscoveryId() {
+        return endpointDiscoveryId;
+    }
+
+    public void setEndpointDiscoveryId(boolean endpointDiscoveryId) {
+        this.endpointDiscoveryId = endpointDiscoveryId;
+    }
+
     public ListModel getListModel() {
         return listModel;
     }
@@ -253,13 +319,13 @@ public class MemberModel extends DocumentationModel {
         this.listModel = listModel;
     }
 
-    public MapModel getMapModel() {
-        return mapModel;
-    }
-
     public MemberModel withListModel(ListModel list) {
         setListModel(list);
         return this;
+    }
+
+    public MapModel getMapModel() {
+        return mapModel;
     }
 
     public void setMapModel(MapModel map) {
@@ -300,12 +366,7 @@ public class MemberModel extends DocumentationModel {
     public String getSetterDocumentation() {
         StringBuilder docBuilder = new StringBuilder();
 
-        docBuilder.append(StringUtils.isNotBlank(documentation) ? documentation : DEFAULT_SETTER.replace("%s", name) + "\n");
-
-        if (ByteBuffer.class.getName().equals(this.getGetterModel().getReturnType())) {
-            appendParagraph(docBuilder, "To preserve immutability, the remaining bytes in the provided buffer will be copied "
-                                        + "into a new buffer when set.");
-        }
+        docBuilder.append(StringUtils.isNotBlank(documentation) ? documentation : defaultSetter().replace("%s", name) + "\n");
 
         docBuilder.append(getParamDoc())
                 .append(getEnumDoc());
@@ -314,24 +375,38 @@ public class MemberModel extends DocumentationModel {
     }
 
     public String getGetterDocumentation() {
-        String returnType = this.getGetterModel().getReturnType();
         StringBuilder docBuilder = new StringBuilder();
-        docBuilder.append(StringUtils.isNotBlank(documentation) ? documentation : DEFAULT_GETTER.replace("%s", name))
+        docBuilder.append(StringUtils.isNotBlank(documentation) ? documentation : defaultGetter().replace("%s", name))
                 .append(LF);
 
-        if (returnType != null) {
-            if (returnType.equals(ByteBuffer.class.getName())) {
-                appendParagraph(docBuilder,
-                                "This method will return a new read-only {@code ByteBuffer} each time it is invoked.");
-            }
+        if (returnTypeIs(List.class) || returnTypeIs(Map.class)) {
+            appendParagraph(docBuilder, "Attempts to modify the collection returned by this method will result in an "
+                                        + "UnsupportedOperationException.");
+        }
 
-            if (returnType.startsWith(List.class.getName()) || returnType.startsWith(Map.class.getName())) {
-                appendParagraph(docBuilder, "Attempts to modify the collection returned by this method will result in an "
-                                            + "UnsupportedOperationException.");
+        if (enumType != null) {
+            if (returnTypeIs(List.class)) {
+                appendParagraph(docBuilder,
+                                "If the list returned by the service includes enum values that are not available in the "
+                                + "current SDK version, {@link #%s} will use {@link %s#UNKNOWN_TO_SDK_VERSION} in place of those "
+                                + "values in the list. The raw values returned by the service are available from {@link #%s}.",
+                                getFluentEnumGetterMethodName(), getEnumType(), getFluentGetterMethodName());
+            } else if (returnTypeIs(Map.class)) {
+                appendParagraph(docBuilder,
+                                "If the map returned by the service includes enum values that are not available in the "
+                                + "current SDK version, {@link #%s} will not include those keys in the map. {@link #%s} "
+                                + "will include all data from the service.",
+                                getFluentEnumGetterMethodName(), getEnumType(), getFluentGetterMethodName());
+            } else {
+                appendParagraph(docBuilder,
+                                "If the service returns an enum value that is not available in the current SDK version, "
+                                + "{@link #%s} will return {@link %s#UNKNOWN_TO_SDK_VERSION}. The raw value returned by the "
+                                + "service is available from {@link #%s}.",
+                                getFluentEnumGetterMethodName(), getEnumType(), getFluentGetterMethodName());
             }
         }
 
-        String variableDesc = StringUtils.isNotBlank(documentation) ? documentation : DEFAULT_GETTER_PARAM.replace("%s", name);
+        String variableDesc = StringUtils.isNotBlank(documentation) ? documentation : defaultGetterParam().replace("%s", name);
 
         docBuilder.append("@return ")
                   .append(stripHtmlTags(variableDesc))
@@ -340,34 +415,62 @@ public class MemberModel extends DocumentationModel {
         return docBuilder.toString();
     }
 
+    private boolean returnTypeIs(Class<?> clazz) {
+        String returnType = this.getGetterModel().getReturnType();
+        return returnType != null && returnType.startsWith(clazz.getName()); // Use startsWith in case it's parametrized
+    }
+
     public String getFluentSetterDocumentation() {
-        StringBuilder docBuilder = new StringBuilder();
-        docBuilder.append(getSetterDocumentation())
-                .append(LF)
-                .append("@return " + stripHtmlTags(DEFAULT_FLUENT_RETURN))
-                .append(getEnumDoc());
-        return docBuilder.toString();
+        return getSetterDocumentation()
+               + LF
+               + "@return " + stripHtmlTags(defaultFluentReturn())
+               + getEnumDoc();
+    }
+
+    public String getDefaultConsumerFluentSetterDocumentation() {
+        return (StringUtils.isNotBlank(documentation) ? documentation : defaultSetter().replace("%s", name) + "\n")
+               + LF
+               + "This is a convenience that creates an instance of the {@link "
+               + variable.getSimpleType()
+               + ".Builder} avoiding the need to create one manually via {@link "
+               + variable.getSimpleType()
+               + "#builder()}.\n"
+               + LF
+               + "When the {@link Consumer} completes, {@link "
+               + variable.getSimpleType()
+               + ".Builder#build()} is called immediately and its result is passed to {@link #"
+               + getFluentGetterMethodName()
+               + "("
+               + variable.getSimpleType()
+               + ")}."
+               + LF
+               + "@param "
+               + variable.getVariableName()
+               + " a consumer that will call methods on {@link "
+               + variable.getSimpleType() + ".Builder}"
+               + LF
+               + "@return " + stripHtmlTags(defaultFluentReturn())
+               + LF
+               + "@see #"
+               + getFluentSetterMethodName()
+               + "("
+               + variable.getSimpleType()
+               + ")";
     }
 
     private String getParamDoc() {
-        StringBuilder docBuilder = new StringBuilder();
-
-        String variableDesc = StringUtils.isNotBlank(documentation) ? documentation : DEFAULT_SETTER_PARAM.replace("%s", name);
-
-        docBuilder.append(LF)
-                  .append("@param ")
-                  .append(variable.getVariableName())
-                  .append(" ")
-                  .append(stripHtmlTags(variableDesc));
-        return docBuilder.toString();
+        return LF
+               + "@param "
+               + variable.getVariableName()
+               + " "
+               + stripHtmlTags(StringUtils.isNotBlank(documentation) ? documentation : defaultSetterParam().replace("%s", name));
     }
 
     private String getEnumDoc() {
         StringBuilder docBuilder = new StringBuilder();
 
         if (enumType != null) {
-            docBuilder.append(LF);
-            docBuilder.append("@see " + enumType);
+            docBuilder.append(LF).append("@see ").append(enumType);
         }
 
         return docBuilder.toString();
@@ -382,21 +485,22 @@ public class MemberModel extends DocumentationModel {
     }
 
     public boolean getIsBinary() {
-        return http.getIsStreaming() || (http.getIsPayload() && "java.nio.ByteBuffer".equals(variable.getVariableType()));
+        return http.getIsStreaming() ||
+               (isSdkBytesType() && (http.getIsPayload() || isEventPayload()));
     }
 
     /**
-     * @return Implementation of {@link software.amazon.awssdk.transform.PathMarshallers.PathMarshaller} to use if this
-     *     member is bound the the URI.
+     * @return Implementation of {@link PathMarshaller} to use if this member is bound the the URI.
      * @throws IllegalStateException If this member is not bound to the URI. Templates should first check
-     *     {@link ParameterHttpMapping#isUri()} first.
+     * {@link ParameterHttpMapping#isUri()} first.
      */
+    // TODO remove when rest XML marshaller refactor is merged
     @JsonIgnore
     public String getPathMarshaller() {
         if (!http.isUri()) {
             throw new IllegalStateException("Only members bound to the URI have a path marshaller");
         }
-        final String prefix = PathMarshallers.class.getName();
+        String prefix = PathMarshaller.class.getName();
         if (http.isGreedy()) {
             return prefix + ".GREEDY";
         } else if (isIdempotencyToken()) {
@@ -406,20 +510,59 @@ public class MemberModel extends DocumentationModel {
         }
     }
 
-    /**
-     * Used for JSON services. Name of the field containing the {@link MarshallingInfo} for
-     * this member.
-     */
+    public boolean isJsonValue() {
+        return isJsonValue;
+    }
+
+    public void setJsonValue(boolean jsonValue) {
+        isJsonValue = jsonValue;
+    }
+
+    public MemberModel withJsonValue(boolean jsonValue) {
+        setJsonValue(jsonValue);
+        return this;
+    }
+
+    public String getTimestampFormat() {
+        return timestampFormat;
+    }
+
+    public void setTimestampFormat(String timestampFormat) {
+        this.timestampFormat = timestampFormat;
+    }
+
+    public MemberModel withTimestampFormat(String timestampFormat) {
+        setTimestampFormat(timestampFormat);
+        return this;
+    }
+
+    public void setSensitive(boolean sensitive) {
+        this.sensitive = sensitive;
+    }
+
+    public boolean isSensitive() {
+        return sensitive;
+    }
+
     @JsonIgnore
-    public String getMarshallerBindingFieldName() {
-        return upperCase(this.name) + "_BINDING";
+    public boolean hasBuilder() {
+        return !(isSimple() || isList() || isMap());
+    }
+
+    @JsonIgnore
+    public boolean isCollectionWithBuilderMember() {
+        return (isList() && getListModel().getListMemberModel() != null && getListModel().getListMemberModel().hasBuilder()) ||
+               (isMap() && getMapModel().getValueModel() != null && getMapModel().getValueModel().hasBuilder());
+    }
+
+    @JsonIgnore
+    public boolean isSdkBytesType() {
+        return SdkBytes.class.getName().equals(variable.getVariableType());
     }
 
     /**
-     * Currently used only for JSON services.
-     *
-     * @return Marshalling type to use when creating a {@link MarshallingInfo}. Must be a field of {@link
-     * software.amazon.awssdk.protocol.MarshallingType}.
+     * @return Marshalling type to use when creating a {@link SdkField}. Must be a
+     * field of {@link MarshallingType}.
      */
     public String getMarshallingType() {
         if (isList()) {
@@ -427,26 +570,9 @@ public class MemberModel extends DocumentationModel {
         } else if (isMap()) {
             return "MAP";
         } else if (!isSimple()) {
-            return "STRUCTURED";
+            return "SDK_POJO";
         } else {
             return TypeUtils.getMarshallingType(variable.getSimpleType());
-        }
-    }
-
-    /**
-     * Currently used only for JSON services.
-     *
-     * @return The target class a marshalling type is bound to.
-     */
-    public String getMarshallingTargetClass() {
-        if (isList()) {
-            return "List";
-        } else if (isMap()) {
-            return "Map";
-        } else if (!isSimple()) {
-            return "StructuredPojo";
-        } else {
-            return variable.getVariableType();
         }
     }
 
@@ -464,13 +590,12 @@ public class MemberModel extends DocumentationModel {
         return c2jName;
     }
 
-    private void appendParagraph(StringBuilder builder, String content) {
+    private void appendParagraph(StringBuilder builder, String content, Object... contentArgs) {
         builder.append("<p>")
                .append(LF)
-               .append(content)
+               .append(String.format(content, contentArgs))
                .append(LF)
                .append("</p>")
                .append(LF);
     }
-
 }

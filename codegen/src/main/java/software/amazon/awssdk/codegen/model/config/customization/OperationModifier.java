@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ public class OperationModifier {
 
     /**
      * @return true if this operation should be excluded when processing the
-     *         service model.
+     *         service model. When this option is set, both input and output
+     *         shapes are excluded too.
      */
     public boolean isExclude() {
         return exclude;
@@ -55,7 +56,7 @@ public class OperationModifier {
 
     /**
      * @return the shape of the member that represents the wrapped result.
-     * @see {{@link #isUseWrappingResult()}
+     * @see #isUseWrappingResult()
      */
     public String getWrappedResultShape() {
         return wrappedResultShape;
@@ -67,7 +68,7 @@ public class OperationModifier {
 
     /**
      * @return the name of the member that represents the wrapped result.
-     * @see {{@link #isUseWrappingResult()}
+     * @see #isUseWrappingResult()
      */
     public String getWrappedResultMember() {
         return wrappedResultMember;

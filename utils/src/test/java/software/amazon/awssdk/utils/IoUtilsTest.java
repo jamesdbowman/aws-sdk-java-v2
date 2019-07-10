@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -30,13 +30,13 @@ public class IoUtilsTest {
 
     @Test
     public void testEmptyByteArray() throws Exception {
-        String s = IoUtils.toString(new ByteArrayInputStream(new byte[0]));
+        String s = IoUtils.toUtf8String(new ByteArrayInputStream(new byte[0]));
         assertEquals("", s);
     }
 
     @Test
     public void testZeroByteStream() throws Exception {
-        String s = IoUtils.toString(new InputStream() {
+        String s = IoUtils.toUtf8String(new InputStream() {
             @Override
             public int read() throws IOException {
                 return -1;
@@ -47,7 +47,7 @@ public class IoUtilsTest {
 
     @Test
     public void test() throws Exception {
-        String s = IoUtils.toString(new ByteArrayInputStream("Testing".getBytes(StandardCharsets.UTF_8)));
+        String s = IoUtils.toUtf8String(new ByteArrayInputStream("Testing".getBytes(StandardCharsets.UTF_8)));
         assertEquals("Testing", s);
     }
 

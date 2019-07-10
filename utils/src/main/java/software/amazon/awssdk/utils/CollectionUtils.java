@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package software.amazon.awssdk.utils;
 
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
-import static java.util.stream.Collectors.toMap;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -25,14 +24,24 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.Supplier;
-import software.amazon.awssdk.annotation.SdkProtectedApi;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
 
 @SdkProtectedApi
-public class CollectionUtils {
+public final class CollectionUtils {
 
-    public static <T> boolean isNullOrEmpty(Collection<T> collection) {
+    private CollectionUtils() {
+    }
+
+    public static boolean isNullOrEmpty(Collection<?> collection) {
         return collection == null || collection.isEmpty();
+    }
+
+    public static boolean isNullOrEmpty(Map<?, ?> map) {
+        return map == null || map.isEmpty();
     }
 
     /**
@@ -50,28 +59,17 @@ public class CollectionUtils {
     }
 
     /**
-     * Joins a collection of strings with the given separator into a single string.
-     *
-     * @param toJoin    Collection containing items to join.
-     * @param separator String to join items with.
-     * @return Empty string if collection is null or empty. Otherwise joins all strings in the collection with the separator.
+     * @param list List to get first element from.
+     * @param <T> Type of elements in the list.
+     * @return The first element in the list if it exists. If the list is null or empty this will
+     * return null.
      */
-    public static String join(Collection<String> toJoin, String separator) {
-        if (isNullOrEmpty(toJoin)) {
-            return "";
+    public static <T> T firstIfPresent(List<T> list) {
+        if (list == null || list.isEmpty()) {
+            return null;
+        } else {
+            return list.get(0);
         }
-
-        StringBuilder joinedString = new StringBuilder();
-        int currentIndex = 0;
-        for (String s : toJoin) {
-            if (s != null) {
-                joinedString.append(s);
-            }
-            if (currentIndex++ != toJoin.size() - 1) {
-                joinedString.append(separator);
-            }
-        }
-        return joinedString.toString();
     }
 
     /**
@@ -90,7 +88,7 @@ public class CollectionUtils {
      */
     public static <T, U> Map<T, List<U>> deepCopyMap(Map<T, ? extends List<U>> map, Supplier<Map<T, List<U>>> mapConstructor) {
         return map.entrySet().stream()
-                  .collect(toMap(Map.Entry::getKey, e -> new ArrayList<>(e.getValue()),
+                  .collect(Collectors.toMap(Map.Entry::getKey, e -> new ArrayList<>(e.getValue()),
                                  CollectionUtils::throwIllegalStateException, mapConstructor));
     }
 
@@ -107,8 +105,26 @@ public class CollectionUtils {
     public static <T, U> Map<T, List<U>> deepUnmodifiableMap(Map<T, ? extends List<U>> map,
                                                              Supplier<Map<T, List<U>>> mapConstructor) {
         return unmodifiableMap(map.entrySet().stream()
-                                  .collect(toMap(Map.Entry::getKey, e -> unmodifiableList(new ArrayList<>(e.getValue())),
-                                                 CollectionUtils::throwIllegalStateException, mapConstructor)));
+                                  .collect(Collectors.toMap(
+                                      Map.Entry::getKey,
+                                      e -> unmodifiableList(new ArrayList<>(e.getValue())),
+                                      CollectionUtils::throwIllegalStateException,
+                                      mapConstructor)));
+    }
+
+
+    /**
+     * Collect a stream of {@link Map.Entry} to a {@link Map} with the same key/value types
+     * @param <K> the key type
+     * @param <V> the value type
+     * @return a map
+     */
+    public static <K, V> Collector<Map.Entry<K, V>, ?, Map<K, V>> toMap() {
+        return Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue);
+    }
+
+    public static <K, VInT, VOutT> Map<K, VOutT> mapValues(Map<K, VInT> inputMap, Function<VInT, VOutT> mapper) {
+        return inputMap.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> mapper.apply(e.getValue())));
     }
 
     /**

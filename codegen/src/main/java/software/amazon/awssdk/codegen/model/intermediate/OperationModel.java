@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,17 +15,16 @@
 
 package software.amazon.awssdk.codegen.model.intermediate;
 
-import static software.amazon.awssdk.codegen.internal.Constants.LF;
-import static software.amazon.awssdk.codegen.internal.DocumentationUtils.createLinkToServiceDocumentation;
-import static software.amazon.awssdk.codegen.internal.DocumentationUtils.stripHtmlTags;
-
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.ArrayList;
 import java.util.List;
-import software.amazon.awssdk.codegen.internal.DocumentationUtils;
+import software.amazon.awssdk.codegen.docs.ClientType;
+import software.amazon.awssdk.codegen.docs.DocConfiguration;
+import software.amazon.awssdk.codegen.docs.OperationDocs;
+import software.amazon.awssdk.codegen.docs.SimpleMethodOverload;
 import software.amazon.awssdk.codegen.internal.Utils;
-import software.amazon.awssdk.utils.CollectionUtils;
-import software.amazon.awssdk.utils.StringUtils;
+import software.amazon.awssdk.codegen.model.service.AuthType;
+import software.amazon.awssdk.codegen.model.service.EndpointTrait;
 
 public class OperationModel extends DocumentationModel {
 
@@ -35,11 +34,9 @@ public class OperationModel extends DocumentationModel {
 
     private VariableModel input;
 
-    private String inputStreamPropertyName;
-
     private ReturnTypeModel returnType;
 
-    private List<ExceptionModel> exceptions = new ArrayList<ExceptionModel>();
+    private List<ExceptionModel> exceptions = new ArrayList<>();
 
     private List<SimpleMethodFormModel> simpleMethods;
 
@@ -47,11 +44,21 @@ public class OperationModel extends DocumentationModel {
 
     private boolean isAuthenticated = true;
 
+    private AuthType authType;
+
+    private boolean isPaginated;
+
+    private boolean endpointOperation;
+
+    private EndpointDiscovery endpointDiscovery;
+
     @JsonIgnore
     private ShapeModel inputShape;
 
     @JsonIgnore
     private ShapeModel outputShape;
+
+    private EndpointTrait endpointTrait;
 
     public String getOperationName() {
         return operationName;
@@ -62,7 +69,7 @@ public class OperationModel extends DocumentationModel {
     }
 
     public String getMethodName() {
-        return Utils.unCapitialize(operationName);
+        return Utils.unCapitalize(operationName);
     }
 
     public boolean isDeprecated() {
@@ -73,12 +80,22 @@ public class OperationModel extends DocumentationModel {
         this.deprecated = deprecated;
     }
 
-    public String getSyncDocumentation(IntermediateModel model, OperationModel opModel) {
-        return getDocumentation(MethodType.SYNC, model, opModel);
+    public String getDocs(IntermediateModel model,
+                          ClientType clientType) {
+        return OperationDocs.getDocs(model, this, clientType);
     }
 
-    public String getAsyncDocumentation(IntermediateModel model, OperationModel opModel) {
-        return getDocumentation(MethodType.ASYNC, model, opModel);
+    public String getDocs(IntermediateModel model,
+                          ClientType clientType,
+                          SimpleMethodOverload methodOverload) {
+        return OperationDocs.getDocs(model, this, clientType, methodOverload);
+    }
+
+    public String getDocs(IntermediateModel model,
+                          ClientType clientType,
+                          SimpleMethodOverload methodOverload,
+                          DocConfiguration config) {
+        return OperationDocs.getDocs(model, this, clientType, methodOverload, config);
     }
 
     public boolean isAuthenticated() {
@@ -87,6 +104,14 @@ public class OperationModel extends DocumentationModel {
 
     public void setIsAuthenticated(boolean isAuthenticated) {
         this.isAuthenticated = isAuthenticated;
+    }
+
+    public AuthType getAuthType() {
+        return authType;
+    }
+
+    public void setAuthType(AuthType authType) {
+        this.authType = authType;
     }
 
     public ShapeModel getInputShape() {
@@ -105,201 +130,12 @@ public class OperationModel extends DocumentationModel {
         this.outputShape = outputShape;
     }
 
-    private enum MethodType {
-
-        SYNC(false),
-        ASYNC(true),
-        ASYNC_WITH_HANDLER(true);
-
-        private final boolean async;
-
-        MethodType(boolean async) {
-            this.async = async;
-        }
-
-        public boolean isAsync() {
-            return async;
-        }
-    }
-
-    private String getDocumentation(final MethodType methodType, IntermediateModel model, OperationModel opModel) {
-        Metadata md = model.getMetadata();
-        StringBuilder docBuilder = new StringBuilder();
-
-        if (StringUtils.isNotBlank(documentation)) {
-            docBuilder.append(documentation);
-        } else {
-            docBuilder.append("Invokes the ").append(operationName).append(" operation");
-
-            if (methodType.isAsync()) {
-                docBuilder.append(" asynchronously");
-            }
-
-            docBuilder.append(".");
-        }
-
-        if (input != null) {
-            docBuilder.append(LF).append("@param ").append(input.getVariableName())
-                      .append(" ").append(stripHtmlTags(input.getDocumentation()));
-        }
-
-
-        if (methodType == MethodType.ASYNC) {
-            if (opModel.hasStreamingInput()) {
-                String streamMemberDocs = getStreamingMemberDocs(opModel.getInputShape());
-                docBuilder.append(LF)
-                          .append("@param requestProvider ")
-                          .append("Functional interface that can be implemented to produce the request content ")
-                          .append("in a non-blocking manner. The size of the content is expected to be known up front. ")
-                          .append("See {@link AsyncRequestProvider} for specific details on implementing this interface as well ")
-                          .append("as links to precanned implementations for common scenarios like uploading from a file. The ")
-                          .append("service documentation for the request content is as follows '")
-                          .append(streamMemberDocs)
-                          .append("'.");
-            }
-            if (opModel.hasStreamingOutput()) {
-                String streamMemberDocs = getStreamingMemberDocs(opModel.getOutputShape());
-                docBuilder.append(LF)
-                          .append("@param asyncResponseHandler The response handler for processing the streaming response in a ")
-                          .append("non-blocking manner. See {@link AsyncResponseHandler} for details on how this callback ")
-                          .append("should be implemented and for links to precanned implementations for common scenarios like ")
-                          .append("downloading to a file. The service documentation for the streamed content is as follows '")
-                          .append(streamMemberDocs).append("'.");
-            }
-        } else if (methodType == MethodType.SYNC) {
-            if (opModel.hasStreamingInput()) {
-                String streamMemberDocs = getStreamingMemberDocs(opModel.getInputShape());
-                docBuilder.append(LF)
-                          .append("@param requestBody ")
-                          .append("The content to send to the service. A {@link RequestBody} can be created using one of ")
-                          .append("several factory methods for various sources of data. For example, to create a request body ")
-                          .append("from a file you can do the following. ")
-                          .append("<pre>{@code RequestBody.of(new File(\"myfile.txt\"))}</pre>")
-                          .append("See documentation in {@link RequestBody} for additional details and which sources of data ")
-                          .append("are supported. The service documentation for the request content is as follows '")
-                          .append(streamMemberDocs).append("'.");
-            }
-            if (opModel.hasStreamingOutput()) {
-                String streamMemberDocs = getStreamingMemberDocs(opModel.getOutputShape());
-                docBuilder.append(LF)
-                          .append("@param streamingHandler ")
-                          .append("Functional interface for processing the streamed response content. The unmarshalled ")
-                          .append(opModel.getOutputShape().getShapeName())
-                          .append(" and an InputStream to the response content are provided as parameters to the callback. ")
-                          .append("The callback may return a transformed type which will be the return value of this method. ")
-                          .append("See {@link software.amazon.awssdk.runtime.transform.StreamingResponseHandler} for details on ")
-                          .append("implementing this interface and for links to precanned implementations for common scenarios ")
-                          .append("like downloading to a file. The service documentation for the response content is as ")
-                          .append("follows '").append(streamMemberDocs).append("'.");
-            }
-        }
-
-        if (returnType != null) {
-            docBuilder.append(LF).append("@return ");
-            if (methodType.isAsync()) {
-                if (opModel.hasStreamingOutput()) {
-                    docBuilder.append("A future to the transformed result of the AsyncResponseHandler.");
-                } else {
-                    docBuilder.append(DocumentationUtils.DEFAULT_ASYNC_RETURN.replace("%s", operationName));
-                }
-            } else {
-                if (opModel.hasStreamingOutput()) {
-                    docBuilder.append("The transformed result of the StreamingResponseHandler.");
-                } else {
-                    docBuilder.append(DocumentationUtils.DEFAULT_SYNC_RETURN.replace("%s", operationName));
-                }
-            }
-        }
-
-        if (!methodType.isAsync() && !CollectionUtils.isNullOrEmpty(exceptions)) {
-            for (ExceptionModel exception : exceptions) {
-                docBuilder.append(LF).append("@throws ")
-                          .append(exception.getExceptionName()).append(" ")
-                          .append(stripHtmlTags(exception.getDocumentation()));
-            }
-            docBuilder.append(LF)
-                      .append("@throws SdkBaseException Base class for all exceptions that can be thrown ")
-                      .append("by the SDK (both service and client). Can be used for catch all scenarios.")
-                      .append(LF)
-                      .append("@throws SdkClientException If any client side error occurs such as an IO related ")
-                      .append("failure, failure to get credentials, etc)")
-                      .append(LF)
-                      .append("@throws ").append(md.getBaseExceptionName())
-                      .append(" Base exception for all service exceptions. Unknown exceptions will be thrown as an ")
-                      .append("instance of this type")
-            ;
-        } else if (methodType.isAsync() && !CollectionUtils.isNullOrEmpty(exceptions)) {
-            docBuilder.append(LF).append("<br/>The CompletableFuture returned by this method can be " +
-                                         "completed exceptionally with the following exceptions.")
-                      .append("<ul>");
-            exceptions.forEach(e -> docBuilder.append("\n<li>")
-                                              .append(e.getExceptionName()).append(" ")
-                                              .append(stripHtmlTags(e.getDocumentation()))
-                                              .append("</li>"));
-            docBuilder
-                    .append("\n<li>SdkBaseException Base class for all exceptions that can be thrown ")
-                    .append("by the SDK (both service and client). Can be used for catch all scenarios.</li>")
-                    .append("\n<li>SdkClientException If any client side error occurs ")
-                    .append("such as an IO related failure, failure to get credentials, etc</li>")
-                    .append("\n<li>")
-                    .append(md.getBaseExceptionName()).append(" Base class for all service exceptions. ")
-                    .append("Unknown exceptions will be thrown as an instance of this </li > ")
-                    .append("<ul>");
-        }
-
-        docBuilder.append(getSampleTagForMethodType(methodType, md));
-        String crosslink = createLinkToServiceDocumentation(md, operationName);
-        if (!crosslink.isEmpty()) {
-            docBuilder.append(LF).append(crosslink);
-        }
-
-        return docBuilder.toString().replace("$", "&#36;");
-    }
-
-    /**
-     * @param streamingShape Shape containing streaming member.
-     * @return Documentation for the streaming member in the given Shape.
-     * @throws IllegalStateException if shape does not have streaming member.
-     */
-    private String getStreamingMemberDocs(ShapeModel streamingShape) {
-        return streamingShape.getMembers().stream()
-                             .filter(m -> m.getHttp().getIsStreaming())
-                             .map(DocumentationModel::getDocumentation)
-                             .findFirst()
-                             .orElseThrow(() -> new IllegalStateException(
-                                     "Streaming member not found in " + streamingShape.getShapeName()));
-    }
-
-    private String getSampleTagForMethodType(final MethodType methodType, final Metadata md) {
-        StringBuilder sb = new StringBuilder();
-
-        sb.append(LF).append("@sample ");
-
-        if (methodType == MethodType.SYNC) {
-            sb.append(md.getSyncInterface());
-        } else if (methodType == MethodType.ASYNC) {
-            sb.append(md.getAsyncInterface());
-        } else if (methodType == MethodType.ASYNC_WITH_HANDLER) {
-            sb.append(md.getAsyncInterface() + "Handler");
-        }
-        sb.append(".").append(operationName);
-        return sb.toString();
-    }
-
     public VariableModel getInput() {
         return input;
     }
 
     public void setInput(VariableModel input) {
         this.input = input;
-    }
-
-    public String getInputStreamPropertyName() {
-        return inputStreamPropertyName;
-    }
-
-    public void setInputStreamPropertyName(String inputStreamPropertyName) {
-        this.inputStreamPropertyName = inputStreamPropertyName;
     }
 
     public ReturnTypeModel getReturnType() {
@@ -310,36 +146,8 @@ public class OperationModel extends DocumentationModel {
         this.returnType = returnType;
     }
 
-    private String getBaseReturnType(boolean async) {
-        if (returnType == null) {
-            if (async) {
-                return "Void";
-            } else {
-                return "void";
-            }
-        }
-        return returnType.getReturnType();
-    }
-
     public String getSyncReturnType() {
-        return getBaseReturnType(false);
-    }
-
-    public String getAsyncReturnType() {
-        return getBaseReturnType(true);
-    }
-
-    public String getAsyncFutureType() {
-        return "CompletableFuture<" + getAsyncReturnType() + ">";
-    }
-
-    public String getAsyncCallableType() {
-        return "java.util.concurrent.Callable<" + getAsyncReturnType() + ">";
-    }
-
-    public String getAsyncHandlerType() {
-        return "software.amazon.awssdk.handlers.AsyncHandler<" + input.getVariableType() + ", " +
-               getAsyncReturnType() + ">";
+        return returnType.getReturnType();
     }
 
     public List<ExceptionModel> getExceptions() {
@@ -384,5 +192,74 @@ public class OperationModel extends DocumentationModel {
 
     public boolean hasStreamingOutput() {
         return outputShape != null && outputShape.isHasStreamingMember();
+    }
+
+    @JsonIgnore
+    public boolean isStreaming() {
+        return hasStreamingInput() || hasStreamingOutput();
+    }
+
+    public boolean isEndpointOperation() {
+        return endpointOperation;
+    }
+
+    public void setEndpointOperation(boolean endpointOperation) {
+        this.endpointOperation = endpointOperation;
+    }
+
+    public boolean isPaginated() {
+        return isPaginated;
+    }
+
+    public void setPaginated(boolean paginated) {
+        isPaginated = paginated;
+    }
+
+    public EndpointDiscovery getEndpointDiscovery() {
+        return endpointDiscovery;
+    }
+
+    public void setEndpointDiscovery(EndpointDiscovery endpointDiscovery) {
+        this.endpointDiscovery = endpointDiscovery;
+    }
+
+    /**
+     * Returns the endpoint trait that will be used to resolve the endpoint of an API.
+     */
+    public EndpointTrait getEndpointTrait() {
+        return endpointTrait;
+    }
+
+    /**
+     * Sets the endpoint trait that will be used to resolve the endpoint of an API.
+     */
+    public void setEndpointTrait(EndpointTrait endpointTrait) {
+        this.endpointTrait = endpointTrait;
+    }
+
+    /**
+     * @return True if the operation has an event stream member in the output shape. False otherwise.
+     */
+    public boolean hasEventStreamOutput() {
+        return containsEventStream(outputShape);
+    }
+
+    /**
+     * @return True if the operation has an event stream member in the input shape. False otherwise.
+     */
+    public boolean hasEventStreamInput() {
+        return containsEventStream(inputShape);
+    }
+
+    public boolean hasRequiresLengthInInput() {
+        return inputShape != null && inputShape.isHasRequiresLengthMember();
+    }
+
+    private boolean containsEventStream(ShapeModel shapeModel) {
+        return shapeModel != null
+               && shapeModel.getMembers() != null
+               && shapeModel.getMembers().stream()
+                            .filter(m -> m.getShape() != null)
+                            .anyMatch(m -> m.getShape().isEventStream());
     }
 }

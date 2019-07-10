@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,140 +17,227 @@ package software.amazon.awssdk.http;
 
 import static software.amazon.awssdk.utils.CollectionUtils.deepUnmodifiableMap;
 
-import java.io.InputStream;
-import java.net.URI;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
-import software.amazon.awssdk.annotation.ReviewBeforeRelease;
-import software.amazon.awssdk.annotation.SdkInternalApi;
+import java.util.function.Consumer;
+import software.amazon.awssdk.annotations.Immutable;
+import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.utils.CollectionUtils;
+import software.amazon.awssdk.utils.StringUtils;
+import software.amazon.awssdk.utils.ToString;
+import software.amazon.awssdk.utils.Validate;
+import software.amazon.awssdk.utils.http.SdkHttpUtils;
 
 /**
- * Internal implementation of {@link SdkHttpFullRequest}. Provided to HTTP implement to execute a request.
+ * Internal implementation of {@link SdkHttpFullRequest}, buildable via {@link SdkHttpFullRequest#builder()}. Provided to HTTP
+ * implementation to execute a request.
  */
 @SdkInternalApi
-class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
-
-    private final Map<String, List<String>> headers;
-    private final String resourcePath;
+@Immutable
+final class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
+    private final String protocol;
+    private final String host;
+    private final Integer port;
+    private final String path;
     private final Map<String, List<String>> queryParameters;
-    private final URI endpoint;
     private final SdkHttpMethod httpMethod;
-    private final InputStream content;
+    private final Map<String, List<String>> headers;
+    private final ContentStreamProvider contentStreamProvider;
 
     private DefaultSdkHttpFullRequest(Builder builder) {
-        this.headers = deepUnmodifiableMap(builder.headers, () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER));
+        this.protocol = standardizeProtocol(builder.protocol);
+        this.host = Validate.paramNotNull(builder.host, "host");
+        this.port = standardizePort(builder.port);
+        this.path = standardizePath(builder.path);
         this.queryParameters = deepUnmodifiableMap(builder.queryParameters, () -> new LinkedHashMap<>());
-        this.resourcePath = builder.resourcePath;
-        this.endpoint = builder.endpoint;
-        this.httpMethod = builder.httpMethod;
-        this.content = builder.content;
+        this.httpMethod = Validate.paramNotNull(builder.httpMethod, "method");
+        this.headers = deepUnmodifiableMap(builder.headers, () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER));
+        this.contentStreamProvider = builder.contentStreamProvider;
+    }
+
+    private String standardizeProtocol(String protocol) {
+        Validate.paramNotNull(protocol, "protocol");
+
+        String standardizedProtocol = StringUtils.lowerCase(protocol);
+        Validate.isTrue(standardizedProtocol.equals("http") || standardizedProtocol.equals("https"),
+                        "Protocol must be 'http' or 'https', but was %s", protocol);
+
+        return standardizedProtocol;
+    }
+
+    private String standardizePath(String path) {
+        if (StringUtils.isEmpty(path)) {
+            return "";
+        }
+
+        StringBuilder standardizedPath = new StringBuilder();
+
+        // Path must always start with '/'
+        if (!path.startsWith("/")) {
+            standardizedPath.append('/');
+        }
+
+        standardizedPath.append(path);
+
+        return standardizedPath.toString();
+    }
+
+    private Integer standardizePort(Integer port) {
+        Validate.isTrue(port == null || port >= -1,
+                        "Port must be positive (or null/-1 to indicate no port), but was '%s'", port);
+
+        if (port != null && port == -1) {
+            return null;
+        }
+
+        return port;
     }
 
     @Override
-    public Map<String, List<String>> getHeaders() {
+    public String protocol() {
+        return protocol;
+    }
+
+    @Override
+    public String host() {
+        return host;
+    }
+
+    @Override
+    public int port() {
+        return Optional.ofNullable(port).orElseGet(() -> SdkHttpUtils.standardPort(protocol()));
+    }
+
+    @Override
+    public Map<String, List<String>> headers() {
         return headers;
     }
 
     @Override
-    public Collection<String> getValuesForHeader(String header) {
-        return headers.getOrDefault(header, Collections.emptyList());
+    public String encodedPath() {
+        return path;
     }
 
     @Override
-    public String getResourcePath() {
-        return resourcePath;
-    }
-
-    @Override
-    public Map<String, List<String>> getParameters() {
+    public Map<String, List<String>> rawQueryParameters() {
         return queryParameters;
     }
 
     @Override
-    public URI getEndpoint() {
-        return endpoint;
-    }
-
-    @Override
-    public SdkHttpMethod getHttpMethod() {
+    public SdkHttpMethod method() {
         return httpMethod;
     }
 
     @Override
-    public InputStream getContent() {
-        return content;
+    public Optional<ContentStreamProvider> contentStreamProvider() {
+        return Optional.ofNullable(contentStreamProvider);
     }
 
     @Override
-    public Builder toBuilder() {
+    public SdkHttpFullRequest.Builder toBuilder() {
         return new Builder()
+                .contentStreamProvider(contentStreamProvider)
+                .protocol(protocol)
+                .host(host)
+                .port(port)
+                .encodedPath(path)
+                .rawQueryParameters(queryParameters)
+                .method(httpMethod)
                 .headers(headers)
-                .resourcePath(resourcePath)
-                .httpMethod(httpMethod)
-                .endpoint(endpoint)
-                .queryParameters(queryParameters)
-                .content(content);
+            ;
+    }
+
+    @Override
+    public String toString() {
+        return ToString.builder("DefaultSdkHttpFullRequest")
+                       .add("httpMethod", httpMethod)
+                       .add("protocol", protocol)
+                       .add("host", host)
+                       .add("port", port)
+                       .add("encodedPath", path)
+                       .add("headers", headers.keySet())
+                       .add("queryParameters", queryParameters.keySet())
+                       .build();
     }
 
     /**
      * Builder for a {@link DefaultSdkHttpFullRequest}.
      */
     static final class Builder implements SdkHttpFullRequest.Builder {
-
-        private Map<String, List<String>> headers = new HashMap<>();
-        private String resourcePath;
-        @ReviewBeforeRelease("Do we need linked hash map here?")
+        private String protocol;
+        private String host;
+        private Integer port;
+        private String path;
         private Map<String, List<String>> queryParameters = new LinkedHashMap<>();
-        private URI endpoint;
         private SdkHttpMethod httpMethod;
-        private InputStream content;
+        private Map<String, List<String>> headers = new LinkedHashMap<>();
+        private ContentStreamProvider contentStreamProvider;
 
         Builder() {
         }
 
         @Override
-        public DefaultSdkHttpFullRequest.Builder header(String key, List<String> values) {
-            this.headers.put(key, new ArrayList<>(values));
+        public String protocol() {
+            return protocol;
+        }
+
+        @Override
+        public SdkHttpFullRequest.Builder protocol(String protocol) {
+            this.protocol = protocol;
             return this;
         }
 
         @Override
-        public DefaultSdkHttpFullRequest.Builder headers(Map<String, List<String>> headers) {
-            this.headers = CollectionUtils.deepCopyMap(headers);
+        public String host() {
+            return host;
+        }
+
+        @Override
+        public SdkHttpFullRequest.Builder host(String host) {
+            this.host = host;
             return this;
         }
 
         @Override
-        public Map<String, List<String>> getHeaders() {
-            return CollectionUtils.deepUnmodifiableMap(this.headers);
+        public Integer port() {
+            return port;
         }
 
         @Override
-        public DefaultSdkHttpFullRequest.Builder resourcePath(String resourcePath) {
-            this.resourcePath = resourcePath;
+        public SdkHttpFullRequest.Builder port(Integer port) {
+            this.port = port;
             return this;
         }
 
         @Override
-        public String getResourcePath() {
-            return this.resourcePath;
+        public DefaultSdkHttpFullRequest.Builder encodedPath(String path) {
+            this.path = path;
+            return this;
         }
 
         @Override
-        public DefaultSdkHttpFullRequest.Builder queryParameter(String paramName, List<String> paramValues) {
+        public String encodedPath() {
+            return path;
+        }
+
+        @Override
+        public DefaultSdkHttpFullRequest.Builder putRawQueryParameter(String paramName, List<String> paramValues) {
             this.queryParameters.put(paramName, new ArrayList<>(paramValues));
             return this;
         }
 
         @Override
-        public DefaultSdkHttpFullRequest.Builder queryParameters(Map<String, List<String>> queryParameters) {
+        public SdkHttpFullRequest.Builder appendRawQueryParameter(String paramName, String paramValue) {
+            this.queryParameters.computeIfAbsent(paramName, k -> new ArrayList<>()).add(paramValue);
+            return this;
+        }
+
+        @Override
+        public DefaultSdkHttpFullRequest.Builder rawQueryParameters(Map<String, List<String>> queryParameters) {
             this.queryParameters = CollectionUtils.deepCopyMap(queryParameters, () -> new LinkedHashMap<>());
             return this;
         }
@@ -168,55 +255,80 @@ class DefaultSdkHttpFullRequest implements SdkHttpFullRequest {
         }
 
         @Override
-        public Map<String, List<String>> getParameters() {
-            return CollectionUtils.deepUnmodifiableMap(this.queryParameters);
+        public Map<String, List<String>> rawQueryParameters() {
+            return CollectionUtils.deepUnmodifiableMap(this.queryParameters, () -> new LinkedHashMap<>());
         }
 
         @Override
-        public DefaultSdkHttpFullRequest.Builder endpoint(URI endpoint) {
-            this.endpoint = endpoint;
-            return this;
-        }
-
-        @Override
-        public URI getEndpoint() {
-            return this.endpoint;
-        }
-
-        @Override
-        public DefaultSdkHttpFullRequest.Builder httpMethod(SdkHttpMethod httpMethod) {
+        public DefaultSdkHttpFullRequest.Builder method(SdkHttpMethod httpMethod) {
             this.httpMethod = httpMethod;
             return this;
         }
 
         @Override
-        public SdkHttpMethod getHttpMethod() {
-            return this.httpMethod;
+        public SdkHttpMethod method() {
+            return httpMethod;
         }
 
         @Override
-        public DefaultSdkHttpFullRequest.Builder content(InputStream content) {
-            this.content = content;
+        public DefaultSdkHttpFullRequest.Builder putHeader(String headerName, List<String> headerValues) {
+            this.headers.put(headerName, new ArrayList<>(headerValues));
             return this;
         }
 
         @Override
-        public InputStream getContent() {
-            return this.content;
+        public SdkHttpFullRequest.Builder appendHeader(String headerName, String headerValue) {
+            this.headers.computeIfAbsent(headerName, k -> new ArrayList<>()).add(headerValue);
+            return this;
         }
 
-        /**
-         * @return An immutable {@link DefaultSdkHttpFullRequest} object.
-         */
+        @Override
+        public DefaultSdkHttpFullRequest.Builder headers(Map<String, List<String>> headers) {
+            this.headers = CollectionUtils.deepCopyMap(headers);
+            return this;
+        }
+
+        @Override
+        public SdkHttpFullRequest.Builder removeHeader(String headerName) {
+            this.headers.remove(headerName);
+            return this;
+        }
+
+        @Override
+        public SdkHttpFullRequest.Builder clearHeaders() {
+            this.headers.clear();
+            return this;
+        }
+
+        @Override
+        public Map<String, List<String>> headers() {
+            return CollectionUtils.deepUnmodifiableMap(this.headers);
+        }
+
+        @Override
+        public DefaultSdkHttpFullRequest.Builder contentStreamProvider(ContentStreamProvider contentStreamProvider) {
+            this.contentStreamProvider = contentStreamProvider;
+            return this;
+        }
+
+        public ContentStreamProvider contentStreamProvider() {
+            return contentStreamProvider;
+        }
+
+        @Override
+        public SdkHttpFullRequest.Builder copy() {
+            return build().toBuilder();
+        }
+
+        @Override
+        public SdkHttpFullRequest.Builder applyMutation(Consumer<SdkHttpRequest.Builder> mutator) {
+            mutator.accept(this);
+            return this;
+        }
+
         @Override
         public DefaultSdkHttpFullRequest build() {
             return new DefaultSdkHttpFullRequest(this);
-        }
-
-        @Override
-        @ReviewBeforeRelease("This is why we shouldn't extend the request in the builder.")
-        public Builder toBuilder() {
-            throw new UnsupportedOperationException();
         }
     }
 

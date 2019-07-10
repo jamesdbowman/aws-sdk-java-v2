@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -62,12 +62,12 @@ public class CodeGenerator {
     }
 
     /**
-     * load ServiceModel. load code gen configuration from individual client. load Waiters. generate intermediate model. generate
+     * load ServiceModel. load code gen configuration from individual client. generate intermediate model. generate
      * code.
      */
     public void execute() {
         try {
-            final IntermediateModel intermediateModel = new IntermediateModelBuilder(models).build();
+            IntermediateModel intermediateModel = new IntermediateModelBuilder(models).build();
 
             // Dump the intermediate model to a file
             writeIntermediateModel(intermediateModel);
@@ -83,7 +83,7 @@ public class CodeGenerator {
 
     private void writeIntermediateModel(IntermediateModel model)
             throws IOException {
-        final File modelDir = getModelDirectory(sourcesDirectory);
+        File modelDir = getModelDirectory(sourcesDirectory);
         PrintWriter writer = null;
         try {
             File outDir = new File(sourcesDirectory);
@@ -113,8 +113,8 @@ public class CodeGenerator {
         }
     }
 
-    private void emitCode(IntermediateModel intermediateModel) throws Exception {
-        final Iterable<GeneratorTask> generatorTasks = createGeneratorTasks(intermediateModel);
+    private void emitCode(IntermediateModel intermediateModel) {
+        Iterable<GeneratorTask> generatorTasks = createGeneratorTasks(intermediateModel);
         try (CodeEmitter emitter = new CodeEmitter(generatorTasks, new GeneratorTaskExecutor())) {
             emitter.emit();
         }

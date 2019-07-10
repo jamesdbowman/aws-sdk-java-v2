@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -49,7 +49,7 @@ public class ServiceIntegrationTest extends IntegrationTestBase {
         String dsId = dsClient
                 .createDirectory(CreateDirectoryRequest.builder().description("This is my directory!")
                                                              .name("AWS.Java.SDK.Directory").shortName("md").password("My.Awesome.Password.2015")
-                                                             .size(DirectorySize.Small).vpcSettings(
+                                                             .size(DirectorySize.SMALL).vpcSettings(
                                 DirectoryVpcSettings.builder().vpcId(vpcId).subnetIds(subnetId_0, subnetId_1).build()).build())
                 .directoryId();
 
@@ -91,7 +91,7 @@ public class ServiceIntegrationTest extends IntegrationTestBase {
         try {
             dsClient.describeDirectories(DescribeDirectoriesRequest.builder().nextToken("invalid").build());
         } catch (InvalidNextTokenException e) {
-            assertNotNull(e.getRequestId());
+            assertNotNull(e.requestId());
         }
     }
 }

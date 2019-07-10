@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ import software.amazon.awssdk.services.codepipeline.model.InvalidNextTokenExcept
 import software.amazon.awssdk.services.codepipeline.model.ListActionTypesRequest;
 import software.amazon.awssdk.services.codepipeline.model.ListActionTypesResponse;
 import software.amazon.awssdk.services.codepipeline.model.ListPipelinesRequest;
-import software.amazon.awssdk.test.AwsTestBase;
+import software.amazon.awssdk.testutils.service.AwsTestBase;
 
 /**
  * Smoke tests for the {@link CodePipelineClient}.
@@ -83,10 +83,10 @@ public class AwsCodePipelineClientIntegrationTest extends AwsTestBase {
     @Test
     public void createFindDelete_ActionType() {
         ActionTypeId actionTypeId = ActionTypeId.builder()
-                .category(ActionCategory.Build)
+                .category(ActionCategory.BUILD)
                 .provider("test-provider")
                 .version("1")
-                .owner(ActionOwner.Custom)
+                .owner(ActionOwner.CUSTOM)
                 .build();
         ArtifactDetails artifactDetails = ArtifactDetails.builder()
                 .maximumCount(1)

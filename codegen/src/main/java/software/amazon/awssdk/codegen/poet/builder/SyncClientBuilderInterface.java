@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
-import software.amazon.awssdk.client.builder.SyncClientBuilder;
+import software.amazon.awssdk.awscore.client.builder.AwsSyncClientBuilder;
 import software.amazon.awssdk.codegen.model.intermediate.IntermediateModel;
 import software.amazon.awssdk.codegen.poet.ClassSpec;
 import software.amazon.awssdk.codegen.poet.PoetUtils;
@@ -39,7 +39,7 @@ public class SyncClientBuilderInterface implements ClassSpec {
     @Override
     public TypeSpec poetSpec() {
         return PoetUtils.createInterfaceBuilder(builderInterfaceName)
-                        .addSuperinterface(ParameterizedTypeName.get(ClassName.get(SyncClientBuilder.class),
+                        .addSuperinterface(ParameterizedTypeName.get(ClassName.get(AwsSyncClientBuilder.class),
                                                                      builderInterfaceName, clientInterfaceName))
                         .addSuperinterface(ParameterizedTypeName.get(baseBuilderInterfaceName,
                                                                      builderInterfaceName, clientInterfaceName))

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,17 +15,20 @@
 
 package software.amazon.awssdk.http.apache.internal.conn;
 
+import software.amazon.awssdk.annotations.SdkInternalApi;
+
 /**
  * TLS protocols arranged in descending order of security preference in terms of
  * their ordinal numbers. See <a href=
  * "http://docs.oracle.com/javase/7/docs/technotes/guides/security/StandardNames.html#jssenames"
  * >JSSE Standard Names</a>.
  */
+@SdkInternalApi
 enum TlsProtocol {
-    TLSv1_2("TLSv1.2"),
+    TLS_V1_2("TLSv1.2"),
     // most secure/preferred
-    TLSv1_1("TLSv1.1"),
-    TLSv1("TLSv1"),
+    TLS_V1_1("TLSv1.1"),
+    TLS_V1("TLSv1"),
     TLS("TLS"),
     // least secure/preferred, but acceptable
     ;

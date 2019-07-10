@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -35,6 +35,9 @@ import software.amazon.awssdk.codegen.model.intermediate.VariableModel;
  */
 final class RemoveUnusedShapes {
 
+    private RemoveUnusedShapes() {
+    }
+
     public static Map<String, ShapeModel> removeUnusedShapes(IntermediateModel model) {
 
         Map<String, ShapeModel> out = new HashMap<String, ShapeModel>();
@@ -51,17 +54,17 @@ final class RemoveUnusedShapes {
                                            Map<String, ShapeModel> in,
                                            Map<String, ShapeModel> out) {
 
-        final VariableModel input = op.getInput();
+        VariableModel input = op.getInput();
         if (input != null) {
             addShapeAndMembers(input.getSimpleType(), in, out);
         }
 
-        final ReturnTypeModel output = op.getReturnType();
+        ReturnTypeModel output = op.getReturnType();
         if (output != null) {
             addShapeAndMembers(output.getReturnType(), in, out);
         }
 
-        final List<ExceptionModel> exceptions = op.getExceptions();
+        List<ExceptionModel> exceptions = op.getExceptions();
         if (op.getExceptions() != null) {
             for (ExceptionModel e : exceptions) {
                 addShapeAndMembers(e.getExceptionName(), in, out);
@@ -80,7 +83,7 @@ final class RemoveUnusedShapes {
             return;
         }
 
-        final ShapeModel shape = in.get(shapeName);
+        ShapeModel shape = in.get(shapeName);
         if (shape == null) {
             return;
         }

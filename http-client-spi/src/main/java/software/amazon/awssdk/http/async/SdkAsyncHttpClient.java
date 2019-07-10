@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,26 +15,67 @@
 
 package software.amazon.awssdk.http.async;
 
-import software.amazon.awssdk.annotation.ReviewBeforeRelease;
-import software.amazon.awssdk.http.ConfigurationProvider;
-import software.amazon.awssdk.http.SdkHttpRequest;
-import software.amazon.awssdk.http.SdkRequestContext;
+import java.util.concurrent.CompletableFuture;
+import software.amazon.awssdk.annotations.Immutable;
+import software.amazon.awssdk.annotations.SdkPublicApi;
+import software.amazon.awssdk.annotations.ThreadSafe;
+import software.amazon.awssdk.utils.AttributeMap;
 import software.amazon.awssdk.utils.SdkAutoCloseable;
+import software.amazon.awssdk.utils.builder.SdkBuilder;
 
-public interface SdkAsyncHttpClient extends SdkAutoCloseable, ConfigurationProvider {
+/**
+* Interface to take a representation of an HTTP request, asynchronously make an HTTP call, and return a representation of an
+* HTTP response.
+*
+* <p>Implementations MUST be thread safe.</p>
+*/
+@Immutable
+@ThreadSafe
+@SdkPublicApi
+public interface SdkAsyncHttpClient extends SdkAutoCloseable {
 
     /**
-     * Create an {@link AbortableRunnable} that can be used to execute the HTTP request.
+     * Execute the request.
      *
-     * @param request         HTTP request (without content).
-     * @param context         Request context containing additional dependencies like metrics.
-     * @param requestProvider Representation of an HTTP requestProvider.
-     * @param handler         The handler that will be called when data is received.
-     * @return Task that can execute an HTTP requestProvider and can be aborted.
+     * @param request The request object.
+     *
+     * @return The future holding the result of the request execution. Upon success execution of the request, the future is
+     * completed with {@code null}, otherwise it is completed exceptionally.
      */
-    @ReviewBeforeRelease("Should we wrap this in a container for more flexibility?")
-    AbortableRunnable prepareRequest(SdkHttpRequest request,
-                                     SdkRequestContext context,
-                                     SdkHttpRequestProvider requestProvider,
-                                     SdkHttpResponseHandler handler);
+    CompletableFuture<Void> execute(AsyncExecuteRequest request);
+
+    /**
+     * Each HTTP client implementation should return a well-formed client name
+     * that allows requests to be identifiable back to the client that made the request.
+     * The client name should include the backing implementation as well as the Sync or Async
+     * to identify the transmission type of the request. Client names should only include
+     * alphanumeric characters. Examples of well formed client names include, Apache, for
+     * requests using Apache's http client or NettyNio for Netty's http client.
+     *
+     * @return String containing the name of the client
+     */
+    default String clientName() {
+        return "UNKNOWN";
+    }
+
+    @FunctionalInterface
+    interface Builder<T extends SdkAsyncHttpClient.Builder<T>> extends SdkBuilder<T, SdkAsyncHttpClient> {
+        /**
+         * Create a {@link SdkAsyncHttpClient} with global defaults applied. This is useful for reusing an HTTP client across
+         * multiple services.
+         */
+        default SdkAsyncHttpClient build() {
+            return buildWithDefaults(AttributeMap.empty());
+        }
+
+        /**
+         * Create an {@link SdkAsyncHttpClient} with service specific defaults applied. Applying service defaults is optional
+         * and some options may not be supported by a particular implementation.
+         *
+         * @param serviceDefaults Service specific defaults. Keys will be one of the constants defined in {@link
+         *                        SdkHttpConfigurationOption}.
+         * @return Created client
+         */
+        SdkAsyncHttpClient buildWithDefaults(AttributeMap serviceDefaults);
+    }
 }

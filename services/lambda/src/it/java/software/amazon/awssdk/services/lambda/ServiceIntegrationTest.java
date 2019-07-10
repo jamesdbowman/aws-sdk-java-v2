@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package software.amazon.awssdk.services.lambda;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import org.junit.Assert;
@@ -26,9 +26,9 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Rule;
 import org.junit.Test;
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.lambda.model.CreateEventSourceMappingRequest;
 import software.amazon.awssdk.services.lambda.model.CreateEventSourceMappingResponse;
-import software.amazon.awssdk.services.lambda.model.CreateFunctionRequest;
 import software.amazon.awssdk.services.lambda.model.CreateFunctionResponse;
 import software.amazon.awssdk.services.lambda.model.DeleteEventSourceMappingRequest;
 import software.amazon.awssdk.services.lambda.model.DeleteFunctionRequest;
@@ -36,9 +36,7 @@ import software.amazon.awssdk.services.lambda.model.FunctionCode;
 import software.amazon.awssdk.services.lambda.model.FunctionConfiguration;
 import software.amazon.awssdk.services.lambda.model.GetEventSourceMappingRequest;
 import software.amazon.awssdk.services.lambda.model.GetEventSourceMappingResponse;
-import software.amazon.awssdk.services.lambda.model.GetFunctionConfigurationRequest;
 import software.amazon.awssdk.services.lambda.model.GetFunctionConfigurationResponse;
-import software.amazon.awssdk.services.lambda.model.GetFunctionRequest;
 import software.amazon.awssdk.services.lambda.model.GetFunctionResponse;
 import software.amazon.awssdk.services.lambda.model.InvocationType;
 import software.amazon.awssdk.services.lambda.model.InvokeRequest;
@@ -47,9 +45,8 @@ import software.amazon.awssdk.services.lambda.model.ListFunctionsRequest;
 import software.amazon.awssdk.services.lambda.model.ListFunctionsResponse;
 import software.amazon.awssdk.services.lambda.model.LogType;
 import software.amazon.awssdk.services.lambda.model.Runtime;
-import software.amazon.awssdk.test.retry.RetryRule;
-import software.amazon.awssdk.util.StringUtils;
-import software.amazon.awssdk.utils.Base64Utils;
+import software.amazon.awssdk.testutils.retry.RetryRule;
+import software.amazon.awssdk.utils.BinaryUtils;
 
 public class ServiceIntegrationTest extends IntegrationTestBase {
 
@@ -62,6 +59,34 @@ public class ServiceIntegrationTest extends IntegrationTestBase {
     public static void setUpKinesis() {
         IntegrationTestBase.createKinesisStream();
     }
+
+    @Before
+    public void uploadFunction() throws IOException {
+        // Upload function
+        SdkBytes functionBits;
+        InputStream functionZip = new FileInputStream(cloudFuncZip);
+        try {
+            functionBits = SdkBytes.fromInputStream(functionZip);
+        } finally {
+            functionZip.close();
+        }
+
+        CreateFunctionResponse result = lambda.createFunction(r -> r.description("My cloud function").functionName(FUNCTION_NAME)
+                                                                    .code(FunctionCode.builder().zipFile(functionBits).build())
+                                                                    .handler("helloworld.handler")
+                                                                    .memorySize(128)
+                                                                    .runtime(Runtime.NODEJS8_10)
+                                                                    .timeout(10)
+                                                                    .role(lambdaServiceRoleArn)).join();
+
+        checkValid_CreateFunctionResponse(result);
+    }
+
+    @After
+    public void deleteFunction() {
+        lambda.deleteFunction(DeleteFunctionRequest.builder().functionName(FUNCTION_NAME).build());
+    }
+
 
     private static void checkValid_CreateFunctionResponse(CreateFunctionResponse result) {
 
@@ -136,41 +161,16 @@ public class ServiceIntegrationTest extends IntegrationTestBase {
         Assert.assertNotNull(result.uuid());
     }
 
-    @Before
-    public void uploadFunction() throws IOException {
-        // Upload function
-        byte[] functionBits;
-        InputStream functionZip = new FileInputStream(cloudFuncZip);
-        try {
-            functionBits = read(functionZip);
-        } finally {
-            functionZip.close();
-        }
-
-        CreateFunctionResponse result = lambda.createFunction(CreateFunctionRequest.builder()
-                .description("My cloud function").functionName(FUNCTION_NAME)
-                .code(FunctionCode.builder().zipFile(ByteBuffer.wrap(functionBits)).build())
-                .handler("helloworld.handler").memorySize(128).runtime(Runtime.Nodejs43).timeout(10)
-                .role(lambdaServiceRoleArn).build()).join();
-
-        checkValid_CreateFunctionResponse(result);
-    }
-
-    @After
-    public void deleteFunction() {
-        lambda.deleteFunction(DeleteFunctionRequest.builder().functionName(FUNCTION_NAME).build());
-    }
-
     @Test
     public void testFunctionOperations() throws IOException {
 
         // Get function
-        GetFunctionResponse getFunc = lambda.getFunction(GetFunctionRequest.builder().functionName(FUNCTION_NAME).build()).join();
+        GetFunctionResponse getFunc = lambda.getFunction(r -> r.functionName(FUNCTION_NAME)).join();
         checkValid_GetFunctionResponse(getFunc);
 
         // Get function configuration
-        GetFunctionConfigurationResponse getConfig = lambda
-                .getFunctionConfiguration(GetFunctionConfigurationRequest.builder().functionName(FUNCTION_NAME).build()).join();
+        GetFunctionConfigurationResponse getConfig = lambda.getFunctionConfiguration(r -> r.functionName(FUNCTION_NAME)).join();
+
         checkValid_GetFunctionConfigurationResponse(getConfig);
 
         // List functions
@@ -182,21 +182,21 @@ public class ServiceIntegrationTest extends IntegrationTestBase {
 
         // Invoke the function
         InvokeResponse invokeResult = lambda.invoke(InvokeRequest.builder().functionName(FUNCTION_NAME)
-                .invocationType(InvocationType.Event).payload(ByteBuffer.wrap("{}".getBytes())).build()).join();
+                .invocationType(InvocationType.EVENT).payload(SdkBytes.fromUtf8String("{}")).build()).join();
 
         Assert.assertEquals(202, invokeResult.statusCode().intValue());
         Assert.assertNull(invokeResult.logResult());
-        Assert.assertEquals(0, invokeResult.payload().remaining());
+        Assert.assertEquals(0, invokeResult.payload().asByteBuffer().remaining());
 
         invokeResult = lambda.invoke(InvokeRequest.builder().functionName(FUNCTION_NAME)
-                .invocationType(InvocationType.RequestResponse).logType(LogType.Tail)
-                .payload(ByteBuffer.wrap("{}".getBytes())).build()).join();
+                .invocationType(InvocationType.REQUEST_RESPONSE).logType(LogType.TAIL)
+                .payload(SdkBytes.fromUtf8String("{}")).build()).join();
 
         Assert.assertEquals(200, invokeResult.statusCode().intValue());
 
-        System.out.println(new String(Base64Utils.decode(invokeResult.logResult()), StringUtils.UTF8));
+        System.out.println(new String(BinaryUtils.fromBase64(invokeResult.logResult()), StandardCharsets.UTF_8));
 
-        Assert.assertEquals("\"Hello World\"", StringUtils.UTF8.decode(invokeResult.payload()).toString());
+        Assert.assertEquals("\"Hello World\"", invokeResult.payload().asUtf8String());
     }
 
     @Test

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ public class ShapeModifier {
     private List<String> exclude;
     private List<Map<String, ModifyModelShapeModifier>> modify;
     private List<Map<String, Member>> inject;
+    private Integer staxTargetDepthOffset;
 
     /**
      * @return true if the whole shape should be excluded.
@@ -74,5 +75,16 @@ public class ShapeModifier {
 
     public void setInject(List<Map<String, Member>> inject) {
         this.inject = inject;
+    }
+
+    /**
+     * @return the depth offset to use during staxUnmarshalling
+     */
+    public Integer getStaxTargetDepthOffset() {
+        return staxTargetDepthOffset;
+    }
+
+    public void setStaxTargetDepthOffset(Integer staxTargetDepthOffset) {
+        this.staxTargetDepthOffset = staxTargetDepthOffset;
     }
 }

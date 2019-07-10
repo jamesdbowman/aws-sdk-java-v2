@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <!--
-  ~ Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+  ~ Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License").
   ~ You may not use this file except in compliance with the License.
@@ -23,8 +23,21 @@
     <suppress checks=".*"
               files=".*[\\/](test|it)[\\/]java[\\/].+\.java$"/>
 
+    <!-- TODO: Disable these suppressions. -->
     <suppress checks=".*"
-              files=".*[\\/]generated-sources[\\/].+\.java$"/>
+              files=".(flow)[\\/].+\.java$"/>
+
+    <!-- ignore missing annotation checks under test/codegen directory -->
+    <suppress checks="MissingSdkAnnotationCheck"
+              files=".(codegen|test|release)[\\/].+\.java$"/>
+
+    <!-- TODO want to contribute this back to Netty -->
+    <suppress checks=".*"
+              files=".*BetterFixedChannelPool\.java$"/>
+
+    <!-- TODO want to contribute this back to Netty -->
+    <suppress checks=".*"
+              files=".*[\\/]io[\\/]netty[\\/]handler[\\/]codec[\\/]http2[\\/].*\.java$"/>
 
     <!-- Assumes getter/setter match JSON property -->
     <suppress checks="AbbreviationAsWordInName"

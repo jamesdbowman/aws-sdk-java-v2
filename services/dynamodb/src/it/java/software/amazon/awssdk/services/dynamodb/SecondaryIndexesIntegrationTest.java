@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -29,7 +29,8 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import software.amazon.awssdk.AmazonServiceException;
+import software.amazon.awssdk.core.exception.SdkServiceException;
+import software.amazon.awssdk.core.util.SdkAutoConstructList;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.ComparisonOperator;
 import software.amazon.awssdk.services.dynamodb.model.Condition;
@@ -88,11 +89,11 @@ public class SecondaryIndexesIntegrationTest extends DynamoDBTestBase {
         assertEquals(HASH_KEY_NAME,
                      tableDescription.keySchema().get(0)
                                      .attributeName());
-        assertEquals(KeyType.HASH.toString(), tableDescription
+        assertEquals(KeyType.HASH, tableDescription
                 .keySchema().get(0).keyType());
         assertEquals(RANGE_KEY_NAME, tableDescription.keySchema()
                                                      .get(1).attributeName());
-        assertEquals(KeyType.RANGE.toString(), tableDescription
+        assertEquals(KeyType.RANGE, tableDescription
                 .keySchema().get(1).keyType());
 
         assertEquals(1, tableDescription.localSecondaryIndexes().size());
@@ -102,17 +103,17 @@ public class SecondaryIndexesIntegrationTest extends DynamoDBTestBase {
                 .localSecondaryIndexes().get(0).keySchema().size());
         assertEquals(HASH_KEY_NAME, tableDescription
                 .localSecondaryIndexes().get(0).keySchema().get(0).attributeName());
-        assertEquals(KeyType.HASH.toString(), tableDescription
+        assertEquals(KeyType.HASH, tableDescription
                 .localSecondaryIndexes().get(0).keySchema().get(0).keyType());
         assertEquals(LSI_RANGE_KEY_NAME, tableDescription
                 .localSecondaryIndexes().get(0).keySchema().get(1).attributeName());
-        assertEquals(KeyType.RANGE.toString(), tableDescription
+        assertEquals(KeyType.RANGE, tableDescription
                 .localSecondaryIndexes().get(0).keySchema().get(1).keyType());
-        assertEquals(ProjectionType.KEYS_ONLY.toString(),
+        assertEquals(ProjectionType.KEYS_ONLY,
                      tableDescription.localSecondaryIndexes().get(0)
                                      .projection().projectionType());
-        assertEquals(null, tableDescription.localSecondaryIndexes().get(0)
-                                           .projection().nonKeyAttributes());
+        assertTrue(tableDescription.localSecondaryIndexes().get(0)
+                                           .projection().nonKeyAttributes() instanceof SdkAutoConstructList);
 
         assertEquals(1, tableDescription.globalSecondaryIndexes().size());
         assertEquals(GSI_NAME, tableDescription
@@ -121,17 +122,17 @@ public class SecondaryIndexesIntegrationTest extends DynamoDBTestBase {
                 .globalSecondaryIndexes().get(0).keySchema().size());
         assertEquals(GSI_HASH_KEY_NAME, tableDescription
                 .globalSecondaryIndexes().get(0).keySchema().get(0).attributeName());
-        assertEquals(KeyType.HASH.toString(), tableDescription
+        assertEquals(KeyType.HASH, tableDescription
                 .globalSecondaryIndexes().get(0).keySchema().get(0).keyType());
         assertEquals(GSI_RANGE_KEY_NAME, tableDescription
                 .globalSecondaryIndexes().get(0).keySchema().get(1).attributeName());
-        assertEquals(KeyType.RANGE.toString(), tableDescription
+        assertEquals(KeyType.RANGE, tableDescription
                 .globalSecondaryIndexes().get(0).keySchema().get(1).keyType());
-        assertEquals(ProjectionType.KEYS_ONLY.toString(),
+        assertEquals(ProjectionType.KEYS_ONLY,
                      tableDescription.globalSecondaryIndexes().get(0)
                                      .projection().projectionType());
-        assertEquals(null, tableDescription.globalSecondaryIndexes().get(0)
-                                           .projection().nonKeyAttributes());
+        assertTrue(tableDescription.globalSecondaryIndexes().get(0)
+                                           .projection().nonKeyAttributes() instanceof SdkAutoConstructList);
 
     }
 
@@ -270,9 +271,9 @@ public class SecondaryIndexesIntegrationTest extends DynamoDBTestBase {
                                                                          .comparisonOperator(ComparisonOperator.EQ)
                                                                   .build()))
                                           .select(Select.ALL_ATTRIBUTES).build());
-            fail("AmazonServiceException is expected");
-        } catch (AmazonServiceException ase) {
-            assertTrue(ase.getMessage().contains("Select type ALL_ATTRIBUTES is not supported for global secondary"));
+            fail("SdkServiceException is expected");
+        } catch (SdkServiceException exception) {
+            assertTrue(exception.getMessage().contains("Select type ALL_ATTRIBUTES is not supported for global secondary"));
         }
 
         /**
@@ -311,7 +312,7 @@ public class SecondaryIndexesIntegrationTest extends DynamoDBTestBase {
                                           .attributesToGet(HASH_KEY_NAME, RANGE_KEY_NAME, LSI_RANGE_KEY_NAME)
                                           .select(Select.ALL_PROJECTED_ATTRIBUTES).build());
             fail("Should trigger exception when using both Select and AttributeToGet.");
-        } catch (AmazonServiceException ase) {
+        } catch (SdkServiceException exception) {
             // Ignored or expected.
         }
 
@@ -460,7 +461,7 @@ public class SecondaryIndexesIntegrationTest extends DynamoDBTestBase {
                                           .attributesToGet(HASH_KEY_NAME, RANGE_KEY_NAME, LSI_RANGE_KEY_NAME)
                                           .select(Select.ALL_PROJECTED_ATTRIBUTES).build());
             fail("Should trigger exception when using both Select and AttributeToGet.");
-        } catch (AmazonServiceException ase) {
+        } catch (SdkServiceException exception) {
             // Ignored or expected.
         }
 

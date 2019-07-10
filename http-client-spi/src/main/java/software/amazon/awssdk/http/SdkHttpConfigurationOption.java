@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,8 +16,7 @@
 package software.amazon.awssdk.http;
 
 import java.time.Duration;
-import software.amazon.awssdk.annotation.ReviewBeforeRelease;
-import software.amazon.awssdk.annotation.SdkProtectedApi;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
 import software.amazon.awssdk.utils.AttributeMap;
 
 /**
@@ -30,12 +29,17 @@ import software.amazon.awssdk.utils.AttributeMap;
  */
 @SdkProtectedApi
 public final class SdkHttpConfigurationOption<T> extends AttributeMap.Key<T> {
-
     /**
      * Timeout for each read to the underlying socket.
      */
-    public static final SdkHttpConfigurationOption<Duration> SOCKET_TIMEOUT =
-            new SdkHttpConfigurationOption<>("SocketTimeout", Duration.class);
+    public static final SdkHttpConfigurationOption<Duration> READ_TIMEOUT =
+            new SdkHttpConfigurationOption<>("ReadTimeout", Duration.class);
+
+    /**
+     * Timeout for each write to the underlying socket.
+     */
+    public static final SdkHttpConfigurationOption<Duration> WRITE_TIMEOUT =
+            new SdkHttpConfigurationOption<>("WriteTimeout", Duration.class);
 
     /**
      * Timeout for establishing a connection to a remote service.
@@ -44,35 +48,81 @@ public final class SdkHttpConfigurationOption<T> extends AttributeMap.Key<T> {
             new SdkHttpConfigurationOption<>("ConnectionTimeout", Duration.class);
 
     /**
+     * Timeout for acquiring an already-established connection from a connection pool to a remote service.
+     */
+    public static final SdkHttpConfigurationOption<Duration> CONNECTION_ACQUIRE_TIMEOUT =
+            new SdkHttpConfigurationOption<>("ConnectionAcquireTimeout", Duration.class);
+
+    /**
+     * Timeout after which an idle connection should be closed.
+     */
+    public static final SdkHttpConfigurationOption<Duration> CONNECTION_MAX_IDLE_TIMEOUT =
+            new SdkHttpConfigurationOption<>("ConnectionMaxIdleTimeout", Duration.class);
+
+    /**
+     * Timeout after which a connection should be closed, regardless of whether it is idle. Zero indicates an infinite amount
+     * of time.
+     */
+    public static final SdkHttpConfigurationOption<Duration> CONNECTION_TIME_TO_LIVE =
+            new SdkHttpConfigurationOption<>("ConnectionTimeToLive", Duration.class);
+
+    /**
      * Maximum number of connections allowed in a connection pool.
      */
     public static final SdkHttpConfigurationOption<Integer> MAX_CONNECTIONS =
             new SdkHttpConfigurationOption<>("MaxConnections", Integer.class);
 
     /**
-     * Whether or not to use strict hostname verification when establishing the SSL connection. For almost all services this
-     * should be true. S3 however uses wildcard certificates for virtual bucket address (bucketname.s3.amazonaws.com) and
-     * needs to disable strict hostname verification to allow for wildcard certs.
+     * HTTP protocol to use.
      */
-    @ReviewBeforeRelease("This does not appear to be needed anymore for S3")
-    public static final SdkHttpConfigurationOption<Boolean> USE_STRICT_HOSTNAME_VERIFICATION =
-            new SdkHttpConfigurationOption<>("UseStrictHostnameVerification", Boolean.class);
+    public static final SdkHttpConfigurationOption<Protocol> PROTOCOL =
+        new SdkHttpConfigurationOption<>("Protocol", Protocol.class);
 
-    private static final Duration DEFAULT_SOCKET_TIMEOUT = Duration.ofSeconds(50);
+    /**
+     * Maximum number of requests allowed to wait for a connection.
+     */
+    public static final SdkHttpConfigurationOption<Integer> MAX_PENDING_CONNECTION_ACQUIRES =
+            new SdkHttpConfigurationOption<>("MaxConnectionAcquires", Integer.class);
 
-    private static final Duration DEFAULT_CONNECTION_TIMEOUT = Duration.ofSeconds(10);
+    /**
+     * Option to disable SSL cert validation and SSL host name verification. By default, this option is off.
+     * Only enable this option for testing purposes.
+     */
+    public static final SdkHttpConfigurationOption<Boolean> TRUST_ALL_CERTIFICATES =
+            new SdkHttpConfigurationOption<>("TrustAllCertificates", Boolean.class);
 
+    /**
+     * Whether idle connection should be removed after the {@link #CONNECTION_MAX_IDLE_TIMEOUT} has passed.
+     */
+    public static final SdkHttpConfigurationOption<Boolean> REAP_IDLE_CONNECTIONS =
+            new SdkHttpConfigurationOption<>("ReapIdleConnections", Boolean.class);
+
+    private static final Duration DEFAULT_SOCKET_READ_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration DEFAULT_SOCKET_WRITE_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration DEFAULT_CONNECTION_TIMEOUT = Duration.ofSeconds(2);
+    private static final Duration DEFAULT_CONNECTION_ACQUIRE_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration DEFAULT_CONNECTION_MAX_IDLE_TIMEOUT = Duration.ofSeconds(60);
+    private static final Duration DEFAULT_CONNECTION_TIME_TO_LIVE = Duration.ZERO;
+    private static final Boolean DEFAULT_REAP_IDLE_CONNECTIONS = Boolean.TRUE;
     private static final int DEFAULT_MAX_CONNECTIONS = 50;
+    private static final int DEFAULT_MAX_CONNECTION_ACQUIRES = 10_000;
+    private static final Boolean DEFAULT_TRUST_ALL_CERTIFICATES = Boolean.FALSE;
 
-    private static final Boolean DEFAULT_USE_STRICT_HOSTNAME_VERIFICATION = Boolean.TRUE;
+    private static final Protocol DEFAULT_PROTOCOL = Protocol.HTTP1_1;
 
-    @ReviewBeforeRelease("Confirm defaults")
     public static final AttributeMap GLOBAL_HTTP_DEFAULTS = AttributeMap
             .builder()
-            .put(SOCKET_TIMEOUT, DEFAULT_SOCKET_TIMEOUT)
+            .put(READ_TIMEOUT, DEFAULT_SOCKET_READ_TIMEOUT)
+            .put(WRITE_TIMEOUT, DEFAULT_SOCKET_WRITE_TIMEOUT)
             .put(CONNECTION_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT)
+            .put(CONNECTION_ACQUIRE_TIMEOUT, DEFAULT_CONNECTION_ACQUIRE_TIMEOUT)
+            .put(CONNECTION_MAX_IDLE_TIMEOUT, DEFAULT_CONNECTION_MAX_IDLE_TIMEOUT)
+            .put(CONNECTION_TIME_TO_LIVE, DEFAULT_CONNECTION_TIME_TO_LIVE)
             .put(MAX_CONNECTIONS, DEFAULT_MAX_CONNECTIONS)
-            .put(USE_STRICT_HOSTNAME_VERIFICATION, DEFAULT_USE_STRICT_HOSTNAME_VERIFICATION)
+            .put(MAX_PENDING_CONNECTION_ACQUIRES, DEFAULT_MAX_CONNECTION_ACQUIRES)
+            .put(PROTOCOL, DEFAULT_PROTOCOL)
+            .put(TRUST_ALL_CERTIFICATES, DEFAULT_TRUST_ALL_CERTIFICATES)
+            .put(REAP_IDLE_CONNECTIONS, DEFAULT_REAP_IDLE_CONNECTIONS)
             .build();
 
     private final String name;

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -20,8 +20,45 @@ import java.io.UncheckedIOException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
 
+@SdkProtectedApi
 public final class FunctionalUtils {
+
+    private FunctionalUtils() {
+    }
+
+    /**
+     * Runs a given {@link UnsafeRunnable} and logs an error without throwing.
+     *
+     * @param errorMsg Message to log with exception thrown.
+     * @param runnable Action to perform.
+     */
+    public static void runAndLogError(Logger log, String errorMsg, UnsafeRunnable runnable) {
+        try {
+            runnable.run();
+        } catch (Exception e) {
+            log.error(errorMsg, e);
+        }
+    }
+
+    /**
+     * @param <T> Type of object to be consumed.
+     * @return A {@link Consumer} that does nothing.
+     */
+    public static <T> Consumer<T> noOpConsumer() {
+        return ignored -> {
+        };
+    }
+
+    /**
+     * @return A {@link Runnable} that does nothing.
+     */
+    public static Runnable noOpRunnable() {
+        return () -> {
+        };
+    }
 
     /**
      * A wrapper around a Consumer that throws a checked exception.

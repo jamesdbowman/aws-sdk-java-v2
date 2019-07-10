@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,15 +16,16 @@
 package software.amazon.awssdk.services.kms;
 
 import org.junit.BeforeClass;
-import software.amazon.awssdk.test.AwsTestBase;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.testutils.service.AwsTestBase;
 
 public class IntegrationTestBase extends AwsTestBase {
 
-    protected static KMSClient kms;
+    protected static KmsClient kms;
 
     @BeforeClass
     public static void setup() throws Exception {
         setUpCredentials();
-        kms = KMSClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
+        kms = KmsClient.builder().region(Region.US_EAST_1).credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
     }
 }

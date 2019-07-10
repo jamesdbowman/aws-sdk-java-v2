@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -28,22 +28,22 @@ import software.amazon.awssdk.services.efs.model.DeleteFileSystemRequest;
 import software.amazon.awssdk.services.efs.model.DescribeFileSystemsRequest;
 import software.amazon.awssdk.services.efs.model.FileSystemAlreadyExistsException;
 import software.amazon.awssdk.services.efs.model.FileSystemNotFoundException;
-import software.amazon.awssdk.test.AwsIntegrationTestBase;
-import software.amazon.awssdk.util.StringUtils;
+import software.amazon.awssdk.testutils.service.AwsIntegrationTestBase;
+import software.amazon.awssdk.utils.StringUtils;
 
 public class ElasticFileSystemIntegrationTest extends AwsIntegrationTestBase {
 
-    private static EFSClient client;
+    private static EfsClient client;
     private String fileSystemId;
 
     @BeforeClass
     public static void setupFixture() throws Exception {
-        client = EFSClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).region(Region.US_WEST_2).build();
+        client = EfsClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).region(Region.US_WEST_2).build();
     }
 
     @After
     public void tearDown() {
-        if (!StringUtils.isNullOrEmpty(fileSystemId)) {
+        if (!StringUtils.isEmpty(fileSystemId)) {
             client.deleteFileSystem(DeleteFileSystemRequest.builder().fileSystemId(fileSystemId).build());
         }
     }
@@ -58,7 +58,7 @@ public class ElasticFileSystemIntegrationTest extends AwsIntegrationTestBase {
         try {
             client.describeFileSystems(DescribeFileSystemsRequest.builder().fileSystemId("fs-00000000").build());
         } catch (FileSystemNotFoundException e) {
-            assertEquals("FileSystemNotFound", e.getErrorCode());
+            assertEquals("FileSystemNotFound", e.errorCode());
         }
     }
 

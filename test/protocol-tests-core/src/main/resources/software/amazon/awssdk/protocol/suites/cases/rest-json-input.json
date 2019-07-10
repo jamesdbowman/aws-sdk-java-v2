@@ -1,23 +1,5 @@
 [
   {
-    "description": "No parameters set marshalls as empty body",
-    "given": {
-      "input": {
-      }
-    },
-    "when": {
-      "action": "marshall",
-      "operation": "AllTypes"
-    },
-    "then": {
-      "serializedAs": {
-        "body": {
-          "equals": "{}"
-        }
-      }
-    }
-  },
-  {
     "description": "Input with members in path, query parameters, headers, and payload is marshalled correctly",
     "given": {
       "input": {
@@ -109,9 +91,57 @@
     },
     "then": {
       "serializedAs": {
+        "headers": {
+          "contains": {
+            "Content-Length": "8"
+          }
+        },
         "body": {
           "equals": "contents"
         }
+      }
+    }
+  },
+  {
+    "description": "String header with JSON trait is base 64 encoded",
+    "given": {
+      "input": {
+        "JsonValueHeaderMember": "toEncode",
+        "JsonValueMember": "dontEncode"
+      }
+    },
+    "when": {
+      "action": "marshall",
+      "operation": "JsonValuesOperation"
+    },
+    "then": {
+      "serializedAs": {
+        "headers": {
+          "contains": {
+            "Encoded-Header": "dG9FbmNvZGU="
+          }
+        },
+        "body": {
+          "equals": "{\"JsonValueMember\":\"dontEncode\"}"
+        }
+      }
+    }
+  },
+  {
+    "description": "Input with greedy label in path, leading slash removed",
+    "given": {
+      "input": {
+        "NonGreedyPathParam": "pathParamValue",
+        "GreedyPathParam": "/foo/bar/baz"
+      }
+    },
+    "when": {
+      "action": "marshall",
+      "operation": "OperationWithGreedyLabel"
+    },
+    "then": {
+      "serializedAs": {
+        "uri": "/2016-03-11/operationWithGreedyLabel/pathParamValue/foo/bar/baz"
       }
     }
   }

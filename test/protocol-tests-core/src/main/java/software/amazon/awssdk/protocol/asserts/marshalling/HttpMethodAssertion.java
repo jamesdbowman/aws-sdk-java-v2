@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -18,19 +18,19 @@ package software.amazon.awssdk.protocol.asserts.marshalling;
 import static org.junit.Assert.assertEquals;
 
 import com.github.tomakehurst.wiremock.verification.LoggedRequest;
-import software.amazon.awssdk.http.HttpMethodName;
-import software.amazon.awssdk.util.ValidationUtils;
+import software.amazon.awssdk.http.SdkHttpMethod;
+import software.amazon.awssdk.utils.Validate;
 
 public class HttpMethodAssertion extends MarshallingAssertion {
 
-    private final HttpMethodName expectedMethodName;
+    private final SdkHttpMethod expectedMethodName;
 
-    public HttpMethodAssertion(HttpMethodName method) {
-        this.expectedMethodName = ValidationUtils.assertNotNull(method, "method");
+    public HttpMethodAssertion(SdkHttpMethod method) {
+        this.expectedMethodName = Validate.paramNotNull(method, "method");
     }
 
     @Override
-    protected void doAssert(LoggedRequest actual) throws Exception {
+    protected void doAssert(LoggedRequest actual) {
         assertEquals(expectedMethodName.name(), actual.getMethod().value());
     }
 }

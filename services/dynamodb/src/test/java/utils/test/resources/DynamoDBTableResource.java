@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,8 +16,10 @@
 package utils.test.resources;
 
 import java.util.List;
-import software.amazon.awssdk.AmazonServiceException;
-import software.amazon.awssdk.services.dynamodb.DynamoDBClient;
+
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.core.exception.SdkServiceException;
+import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.CreateTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.DeleteTableRequest;
 import software.amazon.awssdk.services.dynamodb.model.DescribeTableRequest;
@@ -28,12 +30,14 @@ import software.amazon.awssdk.services.dynamodb.model.LocalSecondaryIndexDescrip
 import software.amazon.awssdk.services.dynamodb.model.Projection;
 import software.amazon.awssdk.services.dynamodb.model.TableDescription;
 import software.amazon.awssdk.services.dynamodb.model.TableStatus;
-import software.amazon.awssdk.services.dynamodb.util.TableUtils;
-import software.amazon.awssdk.test.util.UnorderedCollectionComparator;
+import software.amazon.awssdk.testutils.UnorderedCollectionComparator;
+import software.amazon.awssdk.utils.Logger;
 import utils.resources.TestResource;
 import utils.test.util.DynamoDBTestBase;
+import utils.test.util.TableUtils;
 
 public abstract class DynamoDBTableResource implements TestResource {
+    private static final Logger log = Logger.loggerFor(DynamoDBTableResource.class);
 
     /**
      * Returns true if the two lists of GlobalSecondaryIndex and
@@ -94,7 +98,7 @@ public abstract class DynamoDBTableResource implements TestResource {
                 fromDescribeTableResponse.nonKeyAttributes());
     }
 
-    protected abstract DynamoDBClient getClient();
+    protected abstract DynamoDbClient getClient();
 
     protected abstract CreateTableRequest getCreateTableRequest();
 
@@ -104,11 +108,11 @@ public abstract class DynamoDBTableResource implements TestResource {
 
     @Override
     public void create(boolean waitTillFinished) {
-        System.out.println("Creating " + this + "...");
+        log.info(() -> "Creating " + this + "...");
         getClient().createTable(getCreateTableRequest());
 
         if (waitTillFinished) {
-            System.out.println("Waiting for " + this + " to become active...");
+            log.info(() -> "Waiting for " + this + " to become active...");
             try {
                 TableUtils.waitUntilActive(getClient(), getCreateTableRequest().tableName());
             } catch (InterruptedException e) {
@@ -119,11 +123,11 @@ public abstract class DynamoDBTableResource implements TestResource {
 
     @Override
     public void delete(boolean waitTillFinished) {
-        System.out.println("Deleting " + this + "...");
+        log.info(() -> "Deleting " + this + "...");
         getClient().deleteTable(DeleteTableRequest.builder().tableName(getCreateTableRequest().tableName()).build());
 
         if (waitTillFinished) {
-            System.out.println("Waiting for " + this + " to become deleted...");
+            log.info(() -> "Waiting for " + this + " to become deleted...");
             DynamoDBTestBase.waitForTableToBecomeDeleted(getClient(), getCreateTableRequest().tableName());
         }
     }
@@ -131,19 +135,18 @@ public abstract class DynamoDBTableResource implements TestResource {
     @Override
     public ResourceStatus getResourceStatus() {
         CreateTableRequest createRequest = getCreateTableRequest();
-        TableDescription table = null;
+        TableDescription table;
         try {
             table = getClient().describeTable(DescribeTableRequest.builder().tableName(
                     createRequest.tableName()).build()).table();
-        } catch (AmazonServiceException ase) {
-            if (ase.getErrorCode().equalsIgnoreCase("ResourceNotFoundException")) {
+        } catch (AwsServiceException exception) {
+            if (exception.awsErrorDetails().errorCode().equalsIgnoreCase("ResourceNotFoundException")) {
                 return ResourceStatus.NOT_EXIST;
             }
+            throw exception;
         }
 
-        String tableStatus = table.tableStatus();
-
-        if (tableStatus.equals(TableStatus.ACTIVE.toString())) {
+        if (table.tableStatus() == TableStatus.ACTIVE) {
             // returns AVAILABLE only if table KeySchema + LSIs + GSIs all match.
             if (UnorderedCollectionComparator.equalUnorderedCollections(createRequest.keySchema(), table.keySchema())
                 && equalUnorderedGsiLists(createRequest.globalSecondaryIndexes(), table.globalSecondaryIndexes())
@@ -152,9 +155,9 @@ public abstract class DynamoDBTableResource implements TestResource {
             } else {
                 return ResourceStatus.EXIST_INCOMPATIBLE_RESOURCE;
             }
-        } else if (tableStatus.equals(TableStatus.CREATING.toString())
-                   || tableStatus.equals(TableStatus.UPDATING.toString())
-                   || tableStatus.equals(TableStatus.DELETING.toString())) {
+        } else if (table.tableStatus() == TableStatus.CREATING
+                   || table.tableStatus() == TableStatus.UPDATING
+                   || table.tableStatus() == TableStatus.DELETING) {
             return ResourceStatus.TRANSIENT;
         } else {
             return ResourceStatus.NOT_EXIST;

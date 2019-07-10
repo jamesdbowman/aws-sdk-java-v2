@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,11 +17,13 @@ package software.amazon.awssdk.utils.cache;
 
 import java.time.Instant;
 import java.util.function.Supplier;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
 
 /**
  * A wrapper for the value returned by the {@link Supplier} underlying a {@link CachedSupplier}. The underlying {@link Supplier}
  * returns this to specify when the underlying value should be refreshed.
  */
+@SdkProtectedApi
 public final class RefreshResult<T> {
     private final T value;
     private final Instant staleTime;

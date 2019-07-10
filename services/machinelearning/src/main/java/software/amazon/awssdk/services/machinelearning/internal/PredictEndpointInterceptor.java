@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,11 +17,12 @@ package software.amazon.awssdk.services.machinelearning.internal;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import software.amazon.awssdk.AmazonClientException;
-import software.amazon.awssdk.http.SdkHttpFullRequest;
-import software.amazon.awssdk.interceptor.Context;
-import software.amazon.awssdk.interceptor.ExecutionAttributes;
-import software.amazon.awssdk.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.interceptor.Context;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.http.SdkHttpRequest;
 import software.amazon.awssdk.services.machinelearning.model.PredictRequest;
 
 /**
@@ -29,24 +30,27 @@ import software.amazon.awssdk.services.machinelearning.model.PredictRequest;
  * extracts the PredictRequest's PredictEndpoint "parameter" and swaps it in as
  * the endpoint to send the request to.
  */
-public class PredictEndpointInterceptor implements ExecutionInterceptor {
+@SdkInternalApi
+public final class PredictEndpointInterceptor implements ExecutionInterceptor {
 
     @Override
-    public SdkHttpFullRequest modifyHttpRequest(Context.ModifyHttpRequest context, ExecutionAttributes executionAttributes) {
-        SdkHttpFullRequest request = context.httpRequest();
+    public SdkHttpRequest modifyHttpRequest(Context.ModifyHttpRequest context, ExecutionAttributes executionAttributes) {
+        SdkHttpRequest request = context.httpRequest();
         Object originalRequest = context.request();
         if (originalRequest instanceof PredictRequest) {
             PredictRequest pr = (PredictRequest) originalRequest;
             if (pr.predictEndpoint() == null) {
-                throw new AmazonClientException("PredictRequest.PredictEndpoint is required!");
+                throw SdkClientException.builder().message("PredictRequest.PredictEndpoint is required!").build();
             }
 
             try {
-                return request.toBuilder()
-                              .endpoint(new URI(pr.predictEndpoint()))
-                              .build();
+                URI endpoint = new URI(pr.predictEndpoint());
+                return request.toBuilder().uri(endpoint).build();
             } catch (URISyntaxException e) {
-                throw new AmazonClientException("Unable to parse PredictRequest.PredictEndpoint", e);
+                throw SdkClientException.builder()
+                                        .message("Unable to parse PredictRequest.PredictEndpoint")
+                                        .cause(e)
+                                        .build();
             }
         }
         return request;

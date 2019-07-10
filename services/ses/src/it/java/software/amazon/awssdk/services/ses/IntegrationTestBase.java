@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import org.junit.BeforeClass;
 import software.amazon.awssdk.services.ses.model.ListVerifiedEmailAddressesRequest;
 import software.amazon.awssdk.services.ses.model.ListVerifiedEmailAddressesResponse;
 import software.amazon.awssdk.services.ses.model.VerifyEmailAddressRequest;
-import software.amazon.awssdk.test.AwsTestBase;
+import software.amazon.awssdk.testutils.service.AwsTestBase;
 
 /**
  * Base class for AWS Email integration tests; responsible for loading AWS account credentials for
@@ -37,7 +37,7 @@ public abstract class IntegrationTestBase extends AwsTestBase {
     protected static final String RAW_MESSAGE_FILE_PATH = "/software/amazon/awssdk/services/email/rawMimeMessage.txt";
     public static String DESTINATION;
     public static String SOURCE;
-    protected static SESClient email;
+    protected static SesClient email;
 
     /**
      * Loads the AWS account info for the integration tests and creates client objects for tests to
@@ -53,7 +53,7 @@ public abstract class IntegrationTestBase extends AwsTestBase {
             SOURCE = DESTINATION;
         }
 
-        email = SESClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
+        email = SesClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
     }
 
     protected static void sendVerificationEmail() {

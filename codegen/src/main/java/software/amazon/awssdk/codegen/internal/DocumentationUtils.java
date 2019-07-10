@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 
 package software.amazon.awssdk.codegen.internal;
 
-import static software.amazon.awssdk.codegen.internal.Constants.AWS_DOCS_HOST;
+import static software.amazon.awssdk.codegen.internal.Constant.AWS_DOCS_HOST;
 import static software.amazon.awssdk.codegen.model.intermediate.ShapeType.Model;
 import static software.amazon.awssdk.codegen.model.intermediate.ShapeType.Request;
 import static software.amazon.awssdk.codegen.model.intermediate.ShapeType.Response;
@@ -26,41 +26,27 @@ import java.util.Set;
 import software.amazon.awssdk.codegen.model.intermediate.Metadata;
 import software.amazon.awssdk.codegen.model.intermediate.ShapeModel;
 
-public class DocumentationUtils {
+public final class DocumentationUtils {
 
-    public static final String DEFAULT_ASYNC_RETURN =
-            "A Java Future containing the result of the %s operation returned by the service.";
+    private static final String DEFAULT_SETTER = "Sets the value of the %s property for this object.";
 
-    public static final String DEFAULT_SYNC_RETURN = "Result of the %s operation returned by the service.";
+    private static final String DEFAULT_SETTER_PARAM = "The new value for the %s property for this object.";
 
-    public static final String DEFAULT_SETTER = "Sets the value of the %s property for this object.";
+    private static final String DEFAULT_GETTER = "Returns the value of the %s property for this object.";
 
-    public static final String DEFAULT_SETTER_PARAM = "The new value for the %s property for this object.";
+    private static final String DEFAULT_GETTER_PARAM = "The value of the %s property for this object.";
 
-    public static final String DEFAULT_GETTER = "Returns the value of the %s property for this object.";
-
-    public static final String DEFAULT_GETTER_PARAM = "The value of the %s property for this object.";
-
-    public static final String DEFAULT_FLUENT_RETURN =
+    private static final String DEFAULT_FLUENT_RETURN =
             "Returns a reference to this object so that method calls can be chained together.";
 
-    //TODO kylthoms@: probably should move this to a custom config in each service
+    //TODO probably should move this to a custom config in each service
     private static final Set<String> SERVICES_EXCLUDED_FROM_CROSS_LINKING = new HashSet<>(Arrays.asList(
             "apigateway", "budgets", "cloudsearch", "cloudsearchdomain",
-            "discovery", "elastictranscoder", "es", "glacier", "importexport",
+            "discovery", "elastictranscoder", "es", "glacier",
             "iot", "data.iot", "machinelearning", "rekognition", "s3", "sdb", "swf"
                                                                                                        ));
 
-    public static String generateSetterDocumentation() {
-        return null;
-    }
-
-    public static String generateGetterDocumentation() {
-        return null;
-    }
-
-    public static String generateWitherDocumentation() {
-        return null;
+    private DocumentationUtils() {
     }
 
     /**
@@ -80,7 +66,7 @@ public class DocumentationUtils {
 
         if (documentation.startsWith("<")) {
             int startTagIndex = documentation.indexOf(">");
-            final int closingTagIndex = documentation.lastIndexOf("<");
+            int closingTagIndex = documentation.lastIndexOf("<");
             if (closingTagIndex > startTagIndex) {
                 documentation = stripHtmlTags(documentation.substring(startTagIndex + 1, closingTagIndex));
             } else {
@@ -123,7 +109,7 @@ public class DocumentationUtils {
      */
     public static String createLinkToServiceDocumentation(Metadata metadata, String name) {
         if (isCrossLinkingEnabledForService(metadata)) {
-            return String.format("@see <a href=\"http://%s/goto/WebAPI/%s/%s\" target=\"_top\">AWS API Documentation</a>",
+            return String.format("<a href=\"http://%s/goto/WebAPI/%s/%s\" target=\"_top\">AWS API Documentation</a>",
                                  AWS_DOCS_HOST,
                                  metadata.getUid(),
                                  name);
@@ -157,5 +143,25 @@ public class DocumentationUtils {
     private static boolean isCrossLinkingEnabledForService(Metadata metadata) {
         return metadata.getUid() != null && metadata.getEndpointPrefix() != null &&
                !SERVICES_EXCLUDED_FROM_CROSS_LINKING.contains(metadata.getEndpointPrefix());
+    }
+
+    public static String defaultSetter() {
+        return DEFAULT_SETTER;
+    }
+
+    public static String defaultSetterParam() {
+        return DEFAULT_SETTER_PARAM;
+    }
+
+    public static String defaultGetter() {
+        return DEFAULT_GETTER;
+    }
+
+    public static String defaultGetterParam() {
+        return DEFAULT_GETTER_PARAM;
+    }
+
+    public static String defaultFluentReturn() {
+        return DEFAULT_FLUENT_RETURN;
     }
 }

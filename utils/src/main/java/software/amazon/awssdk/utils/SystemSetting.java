@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,12 +16,15 @@
 package software.amazon.awssdk.utils;
 
 import java.util.Optional;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
+import software.amazon.awssdk.utils.internal.SystemSettingUtils;
 
 /**
  * An interface implemented by enums in other packages in order to define the system settings the want loaded. An enum
  * is expected to implement this interface, and then have values loaded from the {@link System} using methods like
  * {@link #getStringValue()}.
  */
+@SdkProtectedApi
 public interface SystemSetting {
     /**
      * The system property of the setting (or null if there is no property for this setting).

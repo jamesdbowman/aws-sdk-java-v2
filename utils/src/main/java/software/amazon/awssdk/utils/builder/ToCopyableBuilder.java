@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package software.amazon.awssdk.utils.builder;
 
 import java.util.function.Consumer;
+import software.amazon.awssdk.annotations.SdkPublicApi;
 
 /**
  * Implementors of this interface provide a way to get from an instance of T to a {@link CopyableBuilder}. This allows
@@ -24,6 +25,7 @@ import java.util.function.Consumer;
  * @param <T> the type that the builder will build (this)
  * @param <B> the builder type
  */
+@SdkPublicApi
 public interface ToCopyableBuilder<B extends CopyableBuilder<B, T>, T extends ToCopyableBuilder<B, T>> {
     /**
      * Take this object and create a builder that contains all of the current property values of this object.
@@ -40,9 +42,6 @@ public interface ToCopyableBuilder<B extends CopyableBuilder<B, T>, T extends To
      * @return A new copy of this object with the requested modifications.
      */
     default T copy(Consumer<? super B> modifier) {
-        return toBuilder().apply(b -> {
-            modifier.accept(b);
-            return b;
-        }).build();
+        return toBuilder().applyMutation(modifier::accept).build();
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,14 +15,16 @@
 
 package software.amazon.awssdk.services.marketplacecommerceanalytics;
 
+import static software.amazon.awssdk.testutils.service.S3BucketUtils.temporaryBucketName;
+
 import java.io.IOException;
 import java.time.Instant;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import software.amazon.awssdk.AmazonServiceException;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.iam.IAMClient;
+import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.iam.model.AttachRolePolicyRequest;
 import software.amazon.awssdk.services.iam.model.CreatePolicyRequest;
 import software.amazon.awssdk.services.iam.model.CreateRoleRequest;
@@ -34,10 +36,10 @@ import software.amazon.awssdk.services.marketplacecommerceanalytics.model.Genera
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
-import software.amazon.awssdk.services.sns.SNSClient;
+import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.model.CreateTopicRequest;
 import software.amazon.awssdk.services.sns.model.DeleteTopicRequest;
-import software.amazon.awssdk.test.AwsIntegrationTestBase;
+import software.amazon.awssdk.testutils.service.AwsIntegrationTestBase;
 
 public class ServiceIntegrationTest extends AwsIntegrationTestBase {
 
@@ -51,12 +53,12 @@ public class ServiceIntegrationTest extends AwsIntegrationTestBase {
 
     private static final String TOPIC_NAME = "marketplace-commerce-analytics-topic";
 
-    private static final String BUCKET_NAME = "java-sdk-integ-mp-commerce-" + System.currentTimeMillis();
+    private static final String BUCKET_NAME = temporaryBucketName("java-sdk-integ-mp-commerce");
 
     private MarketplaceCommerceAnalyticsClient client;
     private S3Client s3;
-    private SNSClient sns;
-    private IAMClient iam;
+    private SnsClient sns;
+    private IamClient iam;
 
     private String topicArn;
     private String roleArn;
@@ -79,9 +81,9 @@ public class ServiceIntegrationTest extends AwsIntegrationTestBase {
                                                    .region(Region.US_EAST_1)
                                                    .build();
 
-        sns = SNSClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).region(Region.US_EAST_1).build();
+        sns = SnsClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).region(Region.US_EAST_1).build();
 
-        iam = IAMClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).region(Region.AWS_GLOBAL).build();
+        iam = IamClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).region(Region.AWS_GLOBAL).build();
     }
 
     private void setupResources() throws IOException, Exception {
@@ -129,23 +131,23 @@ public class ServiceIntegrationTest extends AwsIntegrationTestBase {
         }
     }
 
-    @Test(expected = AmazonServiceException.class)
+    @Test(expected = SdkServiceException.class)
     public void test() {
         client.generateDataSet(GenerateDataSetRequest.builder()
                                                      .dataSetPublicationDate(Instant.now())
                                                      .roleNameArn(roleArn).destinationS3BucketName(BUCKET_NAME)
                                                      .snsTopicArn(topicArn)
                                                      .destinationS3BucketName(BUCKET_NAME).destinationS3Prefix("some-prefix")
-                                                     .dataSetType(DataSetType.Customer_subscriber_hourly_monthly_subscriptions)
+                                                     .dataSetType(DataSetType.CUSTOMER_SUBSCRIBER_HOURLY_MONTHLY_SUBSCRIPTIONS)
                                                      .build());
     }
 
     private String getAssumeRolePolicy() throws Exception {
-        return getResourceAsString(ASSUME_ROLE_POLICY_LOCATION);
+        return getResourceAsString(getClass(), ASSUME_ROLE_POLICY_LOCATION);
     }
 
     private String getPolicyDocument() throws IOException {
-        return getResourceAsString(POLICY_DOCUMENT_LOCATION);
+        return getResourceAsString(getClass(), POLICY_DOCUMENT_LOCATION);
     }
 
 }

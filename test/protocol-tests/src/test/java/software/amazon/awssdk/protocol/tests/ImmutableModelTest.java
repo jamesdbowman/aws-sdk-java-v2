@@ -1,3 +1,18 @@
+/*
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License").
+ * You may not use this file except in compliance with the License.
+ * A copy of the License is located at
+ *
+ *  http://aws.amazon.com/apache2.0
+ *
+ * or in the "license" file accompanying this file. This file is distributed
+ * on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+ * express or implied. See the License for the specific language governing
+ * permissions and limitations under the License.
+ */
+
 package software.amazon.awssdk.protocol.tests;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -11,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
+import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.protocolrestjson.model.AllTypesRequest;
 import software.amazon.awssdk.services.protocolrestjson.model.SimpleStruct;
 import software.amazon.awssdk.utils.BinaryUtils;
@@ -69,13 +85,14 @@ public class ImmutableModelTest {
 
         buffer.position(1);
 
-        AllTypesRequest request = AllTypesRequest.builder().blobArg(buffer).build();
+        AllTypesRequest request = AllTypesRequest.builder().blobArg(SdkBytes.fromByteBuffer(buffer)).build();
 
         buffer.array()[1] = ' ';
 
-        assertThat(request.blobArg()).as("Check new read-only blob each time").isNotSameAs(request.blobArg());
-        assertThat(request.blobArg().isReadOnly()).as("Check read-only").isTrue();
-        assertThat(BinaryUtils.copyAllBytesFrom(request.blobArg()))
+        assertThat(request.blobArg().asByteBuffer()).as("Check new read-only blob each time")
+                                                    .isNotSameAs(request.blobArg().asByteBuffer());
+        assertThat(request.blobArg().asByteBuffer().isReadOnly()).as("Check read-only").isTrue();
+        assertThat(BinaryUtils.copyAllBytesFrom(request.blobArg().asByteBuffer()))
                 .as("Check copy contents").containsExactly('e', 'l', 'l', 'o');
     }
 }

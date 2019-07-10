@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -23,13 +23,18 @@ import java.lang.reflect.Proxy;
 import org.apache.http.conn.ConnectionRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.annotations.SdkInternalApi;
 
-class ClientConnectionRequestFactory {
+@SdkInternalApi
+final class ClientConnectionRequestFactory {
     private static final Logger log = LoggerFactory.getLogger(ClientConnectionRequestFactory.class);
     private static final Class<?>[] INTERFACES = {
             ConnectionRequest.class,
             Wrapped.class
     };
+
+    private ClientConnectionRequestFactory() {
+    }
 
     /**
      * Returns a wrapped instance of {@link ConnectionRequest}

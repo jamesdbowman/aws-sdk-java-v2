@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,60 +15,59 @@
 
 package software.amazon.awssdk.http;
 
-import java.io.InputStream;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
+import static software.amazon.awssdk.utils.CollectionUtils.deepUnmodifiableMap;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
-import software.amazon.awssdk.annotation.Immutable;
-import software.amazon.awssdk.annotation.ReviewBeforeRelease;
-import software.amazon.awssdk.annotation.SdkInternalApi;
+import software.amazon.awssdk.annotations.Immutable;
+import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.utils.CollectionUtils;
+import software.amazon.awssdk.utils.Validate;
 
 /**
- * Represents an HTTP response returned by an AWS service in response to a
- * service request.
+ * Internal implementation of {@link SdkHttpFullResponse}, buildable via {@link SdkHttpFullResponse#builder()}. Returned by HTTP
+ * implementation to represent a service response.
  */
 @SdkInternalApi
 @Immutable
-class DefaultSdkHttpFullResponse implements SdkHttpFullResponse {
+class DefaultSdkHttpFullResponse implements SdkHttpFullResponse, Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     private final String statusText;
     private final int statusCode;
-    private final AbortableInputStream content;
     private final Map<String, List<String>> headers;
+    private final transient AbortableInputStream content;
 
-    DefaultSdkHttpFullResponse(Builder builder) {
-        this.statusCode = builder.statusCode;
+    private DefaultSdkHttpFullResponse(Builder builder) {
+        this.statusCode = Validate.isNotNegative(builder.statusCode, "Status code must not be negative.");
         this.statusText = builder.statusText;
+        this.headers = deepUnmodifiableMap(builder.headers, () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER));
         this.content = builder.content;
-        this.headers = CollectionUtils.deepUnmodifiableMap(builder.headers, () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER));
     }
 
     @Override
-    public Map<String, List<String>> getHeaders() {
+    public Map<String, List<String>> headers() {
         return headers;
     }
 
     @Override
-    public Collection<String> getValuesForHeader(String header) {
-        Collection<String> values = headers.get(header);
-        return values != null ? values : Collections.emptyList();
+    public Optional<AbortableInputStream> content() {
+        return Optional.ofNullable(content);
     }
 
     @Override
-    public AbortableInputStream getContent() {
-        return content;
+    public Optional<String> statusText() {
+        return Optional.ofNullable(statusText);
     }
 
     @Override
-    public String getStatusText() {
-        return statusText;
-    }
-
-    @Override
-    public int getStatusCode() {
+    public int statusCode() {
         return statusCode;
     }
 
@@ -84,7 +83,7 @@ class DefaultSdkHttpFullResponse implements SdkHttpFullResponse {
         private String statusText;
         private int statusCode;
         private AbortableInputStream content;
-        private Map<String, List<String>> headers = new HashMap<>();
+        private Map<String, List<String>> headers = new LinkedHashMap<>();
 
         Builder() {
         }
@@ -96,35 +95,77 @@ class DefaultSdkHttpFullResponse implements SdkHttpFullResponse {
             this.headers = CollectionUtils.deepCopyMap(defaultSdkHttpFullResponse.headers);
         }
 
+        @Override
+        public String statusText() {
+            return statusText;
+        }
+
+        @Override
         public Builder statusText(String statusText) {
             this.statusText = statusText;
             return this;
         }
 
+        @Override
+        public int statusCode() {
+            return statusCode;
+        }
+
+        @Override
         public Builder statusCode(int statusCode) {
             this.statusCode = statusCode;
             return this;
         }
 
+        @Override
+        public AbortableInputStream content() {
+            return content;
+        }
+
+        @Override
         public Builder content(AbortableInputStream content) {
             this.content = content;
             return this;
         }
 
-        @ReviewBeforeRelease("Should we only allow setting the AbortableInputStream?")
-        public Builder content(InputStream content) {
-            return content(new AbortableInputStream(content, () -> {
-            }));
+        @Override
+        public Builder putHeader(String headerName, List<String> headerValues) {
+            Validate.paramNotNull(headerName, "headerName");
+            Validate.paramNotNull(headerValues, "headerValues");
+            this.headers.put(headerName, new ArrayList<>(headerValues));
+            return this;
         }
 
+        @Override
+        public SdkHttpFullResponse.Builder appendHeader(String headerName, String headerValue) {
+            Validate.paramNotNull(headerName, "headerName");
+            Validate.paramNotNull(headerValue, "headerValue");
+            this.headers.computeIfAbsent(headerName, k -> new ArrayList<>()).add(headerValue);
+            return this;
+        }
+
+        @Override
         public Builder headers(Map<String, List<String>> headers) {
+            Validate.paramNotNull(headers, "headers");
             this.headers = CollectionUtils.deepCopyMap(headers);
             return this;
         }
 
-        public Builder addHeader(String headerName, List<String> headerValues) {
-            this.headers.put(headerName, headerValues);
+        @Override
+        public Builder removeHeader(String headerName) {
+            this.headers.remove(headerName);
             return this;
+        }
+
+        @Override
+        public Builder clearHeaders() {
+            this.headers.clear();
+            return this;
+        }
+
+        @Override
+        public Map<String, List<String>> headers() {
+            return deepUnmodifiableMap(this.headers);
         }
 
         /**

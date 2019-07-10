@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,12 +15,14 @@
 
 package software.amazon.awssdk.services.sqs;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
-import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
+import static software.amazon.awssdk.testutils.SdkAsserts.assertNotEmpty;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -28,6 +30,13 @@ import java.util.Map;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.SdkResponse;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.interceptor.Context;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.services.sqs.model.DeleteQueueRequest;
 import software.amazon.awssdk.services.sqs.model.Message;
 import software.amazon.awssdk.services.sqs.model.MessageAttributeValue;
@@ -38,7 +47,7 @@ import software.amazon.awssdk.services.sqs.model.SendMessageBatchRequestEntry;
 import software.amazon.awssdk.services.sqs.model.SendMessageBatchResponse;
 import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
 import software.amazon.awssdk.services.sqs.model.SendMessageResponse;
-import software.amazon.awssdk.util.ImmutableMapParameter;
+import software.amazon.awssdk.utils.ImmutableMap;
 
 /**
  * Integration tests for the SQS message attributes.
@@ -60,6 +69,41 @@ public class MessageAttributesIntegrationTest extends IntegrationTestBase {
     }
 
     @Test
+    public void sendMessage_InvalidMd5_ThrowsException() {
+        try (SqsClient tamperingClient = SqsClient.builder()
+                                                  .credentialsProvider(getCredentialsProvider())
+                                                  .overrideConfiguration(ClientOverrideConfiguration
+                                                                                 .builder()
+                                                                                 .addExecutionInterceptor(
+                                                                                         new TamperingInterceptor())
+                                                                                 .build())
+                                                  .build()) {
+            tamperingClient.sendMessage(
+                    SendMessageRequest.builder()
+                                      .queueUrl(queueUrl)
+                                      .messageBody(MESSAGE_BODY)
+                                      .messageAttributes(createRandomAttributeValues(10))
+                                      .build());
+            fail("Expected SdkClientException");
+        } catch (SdkClientException e) {
+            assertThat(e.getMessage(), containsString("MD5 returned by SQS does not match"));
+        }
+    }
+
+    public static class TamperingInterceptor implements ExecutionInterceptor {
+
+        @Override
+        public SdkResponse modifyResponse(Context.ModifyResponse context, ExecutionAttributes executionAttributes) {
+            if (context.response() instanceof SendMessageResponse) {
+                return ((SendMessageResponse) context.response()).toBuilder()
+                                                                 .md5OfMessageBody("invalid-md5")
+                                                                 .build();
+            }
+            return context.response();
+        }
+    }
+
+    @Test
     public void sendMessage_WithMessageAttributes_ResultHasMd5OfMessageAttributes() {
         SendMessageResponse sendMessageResult = sendTestMessage();
         assertNotEmpty(sendMessageResult.md5OfMessageBody());
@@ -75,8 +119,8 @@ public class MessageAttributesIntegrationTest extends IntegrationTestBase {
     public void receiveMessage_WithBinaryAttributeValue_DoesNotChangeStateOfByteBuffer() {
         byte[] bytes = new byte[]{1, 1, 1, 0, 0, 0};
         String byteBufferAttrName = "byte-buffer-attr";
-        Map<String, MessageAttributeValue> attrs = ImmutableMapParameter.of(byteBufferAttrName,
-                MessageAttributeValue.builder().dataType("Binary").binaryValue(ByteBuffer.wrap(bytes)).build());
+        Map<String, MessageAttributeValue> attrs = ImmutableMap.of(byteBufferAttrName,
+                                                                   MessageAttributeValue.builder().dataType("Binary").binaryValue(SdkBytes.fromByteArray(bytes)).build());
 
         sqsAsync.sendMessage(SendMessageRequest.builder().queueUrl(queueUrl).messageBody("test")
                 .messageAttributes(attrs)
@@ -86,7 +130,7 @@ public class MessageAttributesIntegrationTest extends IntegrationTestBase {
                 ReceiveMessageRequest.builder().queueUrl(queueUrl).messageAttributeNames("All").waitTimeSeconds(20).build()).join()
                 .messages();
 
-        ByteBuffer actualByteBuffer = messages.get(0).messageAttributes().get(byteBufferAttrName).binaryValue();
+        ByteBuffer actualByteBuffer = messages.get(0).messageAttributes().get(byteBufferAttrName).binaryValue().asByteBuffer();
         assertEquals(bytes.length, actualByteBuffer.remaining());
     }
 

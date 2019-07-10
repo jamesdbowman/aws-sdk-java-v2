@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -31,13 +31,16 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.ec2.EC2Client;
+import software.amazon.awssdk.services.ec2.Ec2Client;
+import software.amazon.awssdk.services.ec2.model.DescribeImagesRequest;
+import software.amazon.awssdk.services.ec2.model.Filter;
+import software.amazon.awssdk.services.ec2.model.Image;
 import software.amazon.awssdk.services.ec2.model.Placement;
 import software.amazon.awssdk.services.ec2.model.RunInstancesRequest;
 import software.amazon.awssdk.services.ec2.model.TerminateInstancesRequest;
 import software.amazon.awssdk.services.elasticloadbalancing.model.ConfigureHealthCheckRequest;
 import software.amazon.awssdk.services.elasticloadbalancing.model.ConnectionDraining;
-import software.amazon.awssdk.services.elasticloadbalancing.model.CreateLBCookieStickinessPolicyRequest;
+import software.amazon.awssdk.services.elasticloadbalancing.model.CreateLbCookieStickinessPolicyRequest;
 import software.amazon.awssdk.services.elasticloadbalancing.model.CreateLoadBalancerListenersRequest;
 import software.amazon.awssdk.services.elasticloadbalancing.model.CreateLoadBalancerRequest;
 import software.amazon.awssdk.services.elasticloadbalancing.model.CrossZoneLoadBalancing;
@@ -64,23 +67,17 @@ import software.amazon.awssdk.services.elasticloadbalancing.model.ModifyLoadBala
 import software.amazon.awssdk.services.elasticloadbalancing.model.PolicyDescription;
 import software.amazon.awssdk.services.elasticloadbalancing.model.PolicyTypeDescription;
 import software.amazon.awssdk.services.elasticloadbalancing.model.RegisterInstancesWithLoadBalancerRequest;
-import software.amazon.awssdk.services.elasticloadbalancing.model.SetLoadBalancerListenerSSLCertificateRequest;
+import software.amazon.awssdk.services.elasticloadbalancing.model.SetLoadBalancerListenerSslCertificateRequest;
 import software.amazon.awssdk.services.elasticloadbalancing.model.SetLoadBalancerPoliciesOfListenerRequest;
-import software.amazon.awssdk.services.iam.IAMClient;
+import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.iam.model.ListServerCertificatesRequest;
 import software.amazon.awssdk.services.iam.model.ServerCertificateMetadata;
-import software.amazon.awssdk.test.AwsIntegrationTestBase;
+import software.amazon.awssdk.testutils.service.AwsIntegrationTestBase;
 
 /**
  * Integration tests for the Elastic Load Balancing client.
- *
- * @author Jason Fulghum fulghum@amazon.com
  */
 public class ElbIntegrationTest extends AwsIntegrationTestBase {
-
-    /** AMI used for tests that require an EC2 instance. */
-    private static final String AMI_ID = "ami-7f418316";
-
     /** Protocol value used in LB requests. */
     private static final String PROTOCOL = "HTTP";
 
@@ -97,10 +94,10 @@ public class ElbIntegrationTest extends AwsIntegrationTestBase {
     private static ElasticLoadBalancingClient elb;
 
     /** The EC2 client used to start an instance for the tests requiring one. */
-    private static EC2Client ec2;
+    private static Ec2Client ec2;
 
     /** IAM client used to retrieve certificateArn. */
-    private static IAMClient iam;
+    private static IamClient iam;
 
     /** Existing SSL certificate ARN in IAM. */
     private static String certificateArn;
@@ -126,11 +123,11 @@ public class ElbIntegrationTest extends AwsIntegrationTestBase {
                 .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
                 .region(REGION)
                 .build();
-        ec2 = EC2Client.builder()
+        ec2 = Ec2Client.builder()
                 .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
                 .region(REGION)
                 .build();
-        iam = IAMClient.builder()
+        iam = IamClient.builder()
                 .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
                 .region(Region.AWS_GLOBAL)
                 .build();
@@ -189,13 +186,15 @@ public class ElbIntegrationTest extends AwsIntegrationTestBase {
      */
     @Test
     public void testLoadBalancerInstanceOperations() throws Exception {
+        String ebs_hvm_ami_id = findEbsBackedPublicHvmAmiId();
+
         // Start up an EC2 instance to register with our LB
         RunInstancesRequest runInstancesRequest = RunInstancesRequest.builder()
                 .placement(
                         Placement.builder()
                                 .availabilityZone(AVAILABILITY_ZONE_1).build())
-                .imageId(AMI_ID).minCount(1).maxCount(1).build();
-        instanceId = ec2.runInstances(runInstancesRequest).reservation()
+                .imageId(ebs_hvm_ami_id).minCount(1).maxCount(1).build();
+        instanceId = ec2.runInstances(runInstancesRequest)
                         .instances().get(0).instanceId();
 
         // Register it with our load balancer
@@ -367,10 +366,10 @@ public class ElbIntegrationTest extends AwsIntegrationTestBase {
 
         if (certificateArn != null) {
             // Set the SSL certificate for an existing listener
-            elb.setLoadBalancerListenerSSLCertificate(SetLoadBalancerListenerSSLCertificateRequest.builder()
-                                                              .loadBalancerName(loadBalancerName)
-                                                              .loadBalancerPort(443)
-                                                              .sslCertificateId(certificateArn).build());
+            elb.setLoadBalancerListenerSSLCertificate(SetLoadBalancerListenerSslCertificateRequest.builder()
+                                                                                                  .loadBalancerName(loadBalancerName)
+                                                                                                  .loadBalancerPort(443)
+                                                                                                  .sslCertificateId(certificateArn).build());
 
             // Delete the SSL listener
             Thread.sleep(1000 * 5);
@@ -461,7 +460,7 @@ public class ElbIntegrationTest extends AwsIntegrationTestBase {
     public void testSetLoadBalancerPoliciesOfListener() {
         // Create LB stickiness policy
         String policyName = "java-sdk-policy-" + System.currentTimeMillis();
-        elb.createLBCookieStickinessPolicy(CreateLBCookieStickinessPolicyRequest.builder().loadBalancerName(
+        elb.createLBCookieStickinessPolicy(CreateLbCookieStickinessPolicyRequest.builder().loadBalancerName(
                 loadBalancerName).policyName(policyName).build());
 
         // Attach the policy to a listener
@@ -489,5 +488,20 @@ public class ElbIntegrationTest extends AwsIntegrationTestBase {
 
         // Delete the policy
         elb.deleteLoadBalancerPolicy(DeleteLoadBalancerPolicyRequest.builder().loadBalancerName(loadBalancerName).policyName(policyName).build());
+    }
+
+    private String findEbsBackedPublicHvmAmiId() {
+        List<Image> hvmImages = ec2.describeImages(
+            DescribeImagesRequest
+                .builder()
+                .filters(Filter.builder().name("virtualization-type").values("hvm").build(),
+                         Filter.builder().name("is-public").values("true").build(),
+                         Filter.builder().name("root-device-type").values("ebs").build(),
+                         Filter.builder().name("name").values("ubuntu/images/hvm-ssd/ubuntu-trusty-14.04-amd64*").build())
+                .build()).images();
+
+        assertTrue("Cannot find a public HVM AMI.", hvmImages.size() > 0);
+
+        return hvmImages.get(0).imageId();
     }
 }

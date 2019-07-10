@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,11 +15,15 @@
 
 package software.amazon.awssdk.utils;
 
+import software.amazon.awssdk.annotations.SdkProtectedApi;
+
 /**
  * The system properties usually provided by the Java runtime.
  */
+@SdkProtectedApi
 public enum JavaSystemSetting implements SystemSetting {
     JAVA_VERSION("java.version"),
+    JAVA_VENDOR("java.vendor"),
     TEMP_DIRECTORY("java.io.tmpdir"),
     JAVA_VM_NAME("java.vm.name"),
     JAVA_VM_VERSION("java.vm.version"),
@@ -29,7 +33,8 @@ public enum JavaSystemSetting implements SystemSetting {
 
     USER_HOME("user.home"),
     USER_LANGUAGE("user.language"),
-    USER_REGION("user.region");
+    USER_REGION("user.region"),
+    USER_NAME("user.name");
 
     private final String systemProperty;
 

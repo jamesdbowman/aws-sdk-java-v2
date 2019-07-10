@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -19,20 +19,21 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.util.stream.Stream;
-import software.amazon.awssdk.auth.AwsCredentials;
-import software.amazon.awssdk.auth.StaticCredentialsProvider;
-import software.amazon.awssdk.client.builder.ClientBuilder;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.awscore.client.builder.AwsClientBuilder;
 import software.amazon.awssdk.codegen.model.intermediate.IntermediateModel;
 import software.amazon.awssdk.codegen.model.intermediate.Metadata;
+import software.amazon.awssdk.core.sync.ResponseTransformer;
 import software.amazon.awssdk.protocol.model.TestCase;
 import software.amazon.awssdk.protocol.wiremock.WireMockUtils;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.sync.StreamingResponseHandler;
+import software.amazon.awssdk.utils.SdkAutoCloseable;
 
 /**
  * Reflection utils to create the client class and invoke operation methods.
  */
-public class ClientReflector {
+public class ClientReflector implements SdkAutoCloseable {
 
     private final IntermediateModel model;
     private final Metadata metadata;
@@ -62,7 +63,7 @@ public class ClientReflector {
      * @return Unmarshalled result
      */
     public Object invokeMethod(TestCase testCase, Object... params) throws Exception {
-        final String operationName = testCase.getWhen().getOperationName();
+        String operationName = testCase.getWhen().getOperationName();
         Method operationMethod = getOperationMethod(operationName, params);
         return operationMethod.invoke(client, params);
     }
@@ -76,10 +77,17 @@ public class ClientReflector {
      */
     public Object invokeStreamingMethod(TestCase testCase,
                                         Object requestObject,
-                                        StreamingResponseHandler<?, ?> responseHandler) throws Exception {
-        final String operationName = testCase.getWhen().getOperationName();
-        Method operationMethod = getOperationMethod(operationName, requestObject.getClass(), StreamingResponseHandler.class);
+                                        ResponseTransformer<?, ?> responseHandler) throws Exception {
+        String operationName = testCase.getWhen().getOperationName();
+        Method operationMethod = getOperationMethod(operationName, requestObject.getClass(), ResponseTransformer.class);
         return operationMethod.invoke(client, requestObject, responseHandler);
+    }
+
+    @Override
+    public void close() {
+        if (client instanceof SdkAutoCloseable) {
+            ((SdkAutoCloseable) client).close();
+        }
     }
 
     /**
@@ -89,7 +97,7 @@ public class ClientReflector {
         try {
             // Reflectively create a builder, configure it, and then create the client.
             Object untypedBuilder = interfaceClass.getMethod("builder").invoke(null);
-            ClientBuilder<?, ?> builder = (ClientBuilder<?, ?>) untypedBuilder;
+            AwsClientBuilder<?, ?> builder = (AwsClientBuilder<?, ?>) untypedBuilder;
             return builder.credentialsProvider(getMockCredentials())
                           .region(Region.US_EAST_1)
                           .endpointOverride(URI.create(getEndpoint()))
@@ -107,7 +115,7 @@ public class ClientReflector {
      * @return Dummy credentials to create client with.
      */
     private StaticCredentialsProvider getMockCredentials() {
-        return new StaticCredentialsProvider(new AwsCredentials("akid", "skid"));
+        return StaticCredentialsProvider.create(AwsBasicCredentials.create("akid", "skid"));
     }
 
     /**

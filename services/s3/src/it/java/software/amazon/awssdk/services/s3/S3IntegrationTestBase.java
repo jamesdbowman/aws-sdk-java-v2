@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,22 +15,20 @@
 
 package software.amazon.awssdk.services.s3;
 
-import java.io.File;
-import java.util.Iterator;
-import java.util.List;
+import static org.assertj.core.api.Assertions.assertThat;
+
 import org.junit.BeforeClass;
-import org.junit.Test;
+import software.amazon.awssdk.core.ClientType;
+import software.amazon.awssdk.core.interceptor.Context;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.regions.Region;
-import software.amazon.awssdk.services.s3.model.DeleteBucketRequest;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectVersionsRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectVersionsResponse;
-import software.amazon.awssdk.services.s3.model.ListObjectsRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsResponse;
-import software.amazon.awssdk.services.s3.model.S3Object;
-import software.amazon.awssdk.test.AwsTestBase;
-import software.amazon.awssdk.test.util.RandomTempFile;
-import software.amazon.awssdk.util.json.Jackson;
+import software.amazon.awssdk.services.s3.model.BucketLocationConstraint;
+import software.amazon.awssdk.services.s3.model.CreateBucketConfiguration;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.utils.S3TestUtils;
+import software.amazon.awssdk.testutils.service.AwsTestBase;
 
 /**
  * Base class for S3 integration tests. Loads AWS credentials from a properties
@@ -38,10 +36,13 @@ import software.amazon.awssdk.util.json.Jackson;
  */
 public class S3IntegrationTestBase extends AwsTestBase {
 
-    /** Android Directory, once set RandomTempFile will use it to create files. */
-    public static File androidRootDir;
-    /** The S3 client for all tests to use. */
+    protected static final Region DEFAULT_REGION = Region.US_WEST_2;
+    /**
+     * The S3 client for all tests to use.
+     */
     protected static S3Client s3;
+
+    protected static S3AsyncClient s3Async;
 
     /**
      * Loads the AWS account info for the integration tests and creates an S3
@@ -49,61 +50,77 @@ public class S3IntegrationTestBase extends AwsTestBase {
      */
     @BeforeClass
     public static void setUp() throws Exception {
-        s3 = S3Client.builder().region(Region.US_WEST_2).credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
+        s3 = s3ClientBuilder().build();
+        s3Async = s3AsyncClientBuilder().build();
     }
 
-    protected static File getRandomTempFile(String filename, long contentLength) throws Exception {
-        if (androidRootDir == null) {
-            return new RandomTempFile(filename, contentLength);
-        } else {
-            return new RandomTempFile(androidRootDir, filename, contentLength);
-        }
+    protected static S3ClientBuilder s3ClientBuilder() {
+        return S3Client.builder()
+                       .region(DEFAULT_REGION)
+                       .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
+                       .overrideConfiguration(o -> o.addExecutionInterceptor(
+                           new UserAgentVerifyingExecutionInterceptor("Apache", ClientType.SYNC)));
     }
 
-    public static void deleteBucketAndAllContents(String bucketName) {
-        System.out.println("Deleting S3 bucket: " + bucketName);
-        ListObjectsResponse response = s3.listObjects(ListObjectsRequest.builder().bucket(bucketName).build());
-        List<S3Object> objectListing = response.contents();
+    protected static S3AsyncClientBuilder s3AsyncClientBuilder() {
+        return S3AsyncClient.builder()
+                            .region(DEFAULT_REGION)
+                            .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
+                            .overrideConfiguration(o -> o.addExecutionInterceptor(
+                                new UserAgentVerifyingExecutionInterceptor("NettyNio", ClientType.ASYNC)));
+    }
 
-        if (objectListing != null) {
-            while (true) {
-                for (Iterator<?> iterator = objectListing.iterator(); iterator.hasNext(); ) {
-                    S3Object objectSummary = (S3Object) iterator.next();
-                    s3.deleteObject(DeleteObjectRequest.builder().bucket(bucketName).key(objectSummary.key()).build());
-                }
+    protected static void createBucket(String bucketName) {
+        createBucket(bucketName, 0);
+    }
 
-                if (response.isTruncated()) {
-                    objectListing = s3.listObjects(ListObjectsRequest.builder()
-                                                                     .bucket(bucketName)
-                                                                     .marker(response.marker())
-                                                                     .build())
-                                      .contents();
+    private static void createBucket(String bucketName, int retryCount) {
+        try {
+            s3.createBucket(
+                CreateBucketRequest.builder()
+                                   .bucket(bucketName)
+                                   .createBucketConfiguration(
+                                       CreateBucketConfiguration.builder()
+                                                                .locationConstraint(BucketLocationConstraint.US_WEST_2)
+                                                                .build())
+                                   .build());
+        } catch (S3Exception e) {
+            System.err.println("Error attempting to create bucket: " + bucketName);
+            if (e.awsErrorDetails().errorCode().equals("BucketAlreadyOwnedByYou")) {
+                System.err.printf("%s bucket already exists, likely leaked by a previous run\n", bucketName);
+            } else if (e.awsErrorDetails().errorCode().equals("TooManyBuckets")) {
+                System.err.println("Printing all buckets for debug:");
+                s3.listBuckets().buckets().forEach(System.err::println);
+                if (retryCount < 2) {
+                    System.err.println("Retrying...");
+                    createBucket(bucketName, retryCount + 1);
                 } else {
-                    break;
+                    throw e;
                 }
+            } else {
+                throw e;
             }
         }
-
-
-        ListObjectVersionsResponse versions = s3.listObjectVersions(ListObjectVersionsRequest.builder().bucket(bucketName).build());
-
-        if (versions.deleteMarkers() != null) {
-            versions.deleteMarkers().forEach(v -> s3.deleteObject(DeleteObjectRequest.builder()
-                                                                                     .versionId(v.versionId())
-                                                                                     .bucket(bucketName)
-                                                                                     .key(v.key())
-                                                                                     .build()));
-        }
-
-        if (versions.versions() != null) {
-            versions.versions().forEach(v -> s3.deleteObject(DeleteObjectRequest.builder()
-                                                                                .versionId(v.versionId())
-                                                                                .bucket(bucketName)
-                                                                                .key(v.key())
-                                                                                .build()));
-        }
-
-        s3.deleteBucket(DeleteBucketRequest.builder().bucket(bucketName).build());
     }
 
+    protected static void deleteBucketAndAllContents(String bucketName) {
+        S3TestUtils.deleteBucketAndAllContents(s3, bucketName);
+    }
+
+    private static class UserAgentVerifyingExecutionInterceptor implements ExecutionInterceptor {
+
+        private final String clientName;
+        private final ClientType clientType;
+
+        public UserAgentVerifyingExecutionInterceptor(String clientName, ClientType clientType) {
+            this.clientName = clientName;
+            this.clientType = clientType;
+        }
+
+        @Override
+        public void beforeTransmission(Context.BeforeTransmission context, ExecutionAttributes executionAttributes) {
+            assertThat(context.httpRequest().firstMatchingHeader("User-Agent").get()).containsIgnoringCase("io/" + clientType.name());
+            assertThat(context.httpRequest().firstMatchingHeader("User-Agent").get()).containsIgnoringCase("http/" + clientName);
+        }
+    }
 }

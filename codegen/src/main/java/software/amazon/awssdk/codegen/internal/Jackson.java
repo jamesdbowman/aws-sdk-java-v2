@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,11 +15,8 @@
 
 package software.amazon.awssdk.codegen.internal;
 
-import com.fasterxml.jackson.core.JsonGenerationException;
-import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -30,40 +27,50 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.Writer;
 
-public class Jackson {
+public final class Jackson {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+        .configure(JsonParser.Feature.ALLOW_COMMENTS, true)
+        .enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
+        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+    private static final ObjectMapper FAIL_ON_UNKNOWN_PROPERTIES_MAPPER = new ObjectMapper()
+        .configure(JsonParser.Feature.ALLOW_COMMENTS, true)
+        .enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY);
 
     private static final ObjectWriter WRITER = MAPPER
-            .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
-            .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
-            .writerWithDefaultPrettyPrinter();
+        .configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true)
+        .configure(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY, true)
+        .writerWithDefaultPrettyPrinter();
 
-    static {
-        MAPPER.configure(JsonParser.Feature.ALLOW_COMMENTS, true);
-        // TODO: Un comment this once we know for sure, we capture everything in C2j model.
-        MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    private Jackson() {
     }
 
-    public static <T> T load(Class<T> clazz, File file)
-            throws JsonParseException, JsonMappingException, IOException {
+    public static <T> T load(Class<T> clazz, File file) throws IOException {
         return load(clazz, new FileInputStream(file));
     }
 
-    public static <T> T load(Class<T> clazz, InputStream is)
-            throws JsonParseException, JsonMappingException, IOException {
+    public static <T> T load(Class<T> clazz, File file, boolean failOnUnknownProperties) throws IOException {
+        try (FileInputStream fis = new FileInputStream(file)) {
+            if (failOnUnknownProperties) {
+                return FAIL_ON_UNKNOWN_PROPERTIES_MAPPER.readValue(fis, clazz);
+            } else {
+                return load(clazz, fis);
+            }
+        }
+    }
+
+    public static <T> T load(Class<T> clazz, InputStream is) throws IOException {
         return MAPPER.readValue(is, clazz);
     }
 
-    public static <T> T load(Class<T> clazz, String fileLocation)
-            throws JsonParseException, JsonMappingException, IOException {
+    public static <T> T load(Class<T> clazz, String fileLocation) throws IOException {
         InputStream is = Jackson.class.getClassLoader().getResourceAsStream(
-                fileLocation);
+            fileLocation);
         return MAPPER.readValue(is, clazz);
     }
 
-    public static void write(Object value, Writer w)
-            throws JsonGenerationException, JsonMappingException, IOException {
+    public static void write(Object value, Writer w) throws IOException {
         WRITER.writeValue(w, value);
     }
 

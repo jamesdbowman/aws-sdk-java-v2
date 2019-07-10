@@ -1,24 +1,24 @@
 package software.amazon.awssdk.services.jsonprotocoltests.model;
 
+import static java.util.stream.Collectors.toMap;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Generated;
-import software.amazon.awssdk.runtime.StandardMemberCopier;
+import software.amazon.awssdk.annotations.Generated;
+import software.amazon.awssdk.core.util.DefaultSdkAutoConstructMap;
+import software.amazon.awssdk.core.util.SdkAutoConstructMap;
 
 @Generated("software.amazon.awssdk:codegen")
 final class MapOfStringToIntegerListCopier {
     static Map<String, List<Integer>> copy(Map<String, ? extends Collection<Integer>> mapOfStringToIntegerListParam) {
-        if (mapOfStringToIntegerListParam == null) {
-            return null;
+        if (mapOfStringToIntegerListParam == null || mapOfStringToIntegerListParam instanceof SdkAutoConstructMap) {
+            return DefaultSdkAutoConstructMap.getInstance();
         }
-        Map<String, List<Integer>> mapOfStringToIntegerListParamCopy = new HashMap<>(mapOfStringToIntegerListParam.size());
-        for (Map.Entry<String, ? extends Collection<Integer>> e : mapOfStringToIntegerListParam.entrySet()) {
-            mapOfStringToIntegerListParamCopy.put(StandardMemberCopier.copy(e.getKey()), ListOfIntegersCopier.copy(e.getValue()));
-        }
+        Map<String, List<Integer>> mapOfStringToIntegerListParamCopy = mapOfStringToIntegerListParam.entrySet().stream()
+            .collect(HashMap::new, (m, e) -> m.put(e.getKey(), ListOfIntegersCopier.copy(e.getValue())), HashMap::putAll);
         return Collections.unmodifiableMap(mapOfStringToIntegerListParamCopy);
     }
 }
-

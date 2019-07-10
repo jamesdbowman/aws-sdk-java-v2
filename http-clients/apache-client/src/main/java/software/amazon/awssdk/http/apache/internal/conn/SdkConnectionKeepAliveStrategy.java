@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -19,12 +19,14 @@ import org.apache.http.HttpResponse;
 import org.apache.http.conn.ConnectionKeepAliveStrategy;
 import org.apache.http.impl.client.DefaultConnectionKeepAliveStrategy;
 import org.apache.http.protocol.HttpContext;
+import software.amazon.awssdk.annotations.SdkInternalApi;
 
 /**
  * The AWS SDK for Java's implementation of the
  * {@code ConnectionKeepAliveStrategy} interface. Allows a user-configurable
  * maximum idle time for connections.
  */
+@SdkInternalApi
 public class SdkConnectionKeepAliveStrategy implements ConnectionKeepAliveStrategy {
 
     private final long maxIdleTime;

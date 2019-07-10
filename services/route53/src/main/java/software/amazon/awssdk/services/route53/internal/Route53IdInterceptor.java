@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,10 +16,11 @@
 package software.amazon.awssdk.services.route53.internal;
 
 import java.util.stream.Collectors;
-import software.amazon.awssdk.SdkResponse;
-import software.amazon.awssdk.interceptor.Context;
-import software.amazon.awssdk.interceptor.ExecutionAttributes;
-import software.amazon.awssdk.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.core.SdkResponse;
+import software.amazon.awssdk.core.interceptor.Context;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.services.route53.model.AliasTarget;
 import software.amazon.awssdk.services.route53.model.ChangeInfo;
 import software.amazon.awssdk.services.route53.model.ChangeResourceRecordSetsResponse;
@@ -46,7 +47,8 @@ import software.amazon.awssdk.services.route53.model.ResourceRecordSet;
  * cannot be included, otherwise requests fail. This handler removes those
  * partial resource path elements from IDs returned by Route 53.
  */
-public class Route53IdInterceptor implements ExecutionInterceptor {
+@SdkInternalApi
+public final class Route53IdInterceptor implements ExecutionInterceptor {
     @Override
     public SdkResponse modifyResponse(Context.ModifyResponse context, ExecutionAttributes executionAttributes) {
         SdkResponse response = context.response();

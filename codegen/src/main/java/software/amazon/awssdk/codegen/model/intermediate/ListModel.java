@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -92,7 +92,7 @@ public class ListModel {
 
     public boolean isMap() {
         return memberType.startsWith(TypeUtils
-                                             .getDataTypeMapping(TypeUtils.MAP_INTERFACE));
+                                             .getDataTypeMapping(TypeUtils.TypeKey.MAP_INTERFACE));
     }
 
     public String getTemplateType() {

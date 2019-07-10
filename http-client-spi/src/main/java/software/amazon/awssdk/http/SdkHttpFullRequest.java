@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,183 +17,295 @@ package software.amazon.awssdk.http;
 
 import static java.util.Collections.singletonList;
 
-import java.io.InputStream;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
-import software.amazon.awssdk.annotation.ReviewBeforeRelease;
-import software.amazon.awssdk.utils.builder.CopyableBuilder;
-import software.amazon.awssdk.utils.builder.ToCopyableBuilder;
+import java.util.Optional;
+import java.util.function.Consumer;
+import software.amazon.awssdk.annotations.Immutable;
+import software.amazon.awssdk.annotations.SdkPublicApi;
+import software.amazon.awssdk.utils.http.SdkHttpUtils;
 
 /**
- * Represents a request being sent to an Amazon Web Service, including the
- * parameters being sent as part of the request, the endpoint to which the
- * request should be sent, etc.
+ * An immutable HTTP request with a possible HTTP body.
  *
- * <p>This class should not be implemented outside of the SDK.</p>
+ * <p>All implementations of this interface MUST be immutable. Instead of implementing this interface, consider using
+ * {@link #builder()} to create an instance.</p>
  */
+@SdkPublicApi
+@Immutable
 public interface SdkHttpFullRequest
-        extends SdkHttpRequest, ToCopyableBuilder<SdkHttpFullRequest.Builder, SdkHttpFullRequest> {
+    extends SdkHttpRequest {
     /**
      * @return Builder instance to construct a {@link DefaultSdkHttpFullRequest}.
      */
-    static Builder builder() {
+    static SdkHttpFullRequest.Builder builder() {
         return new DefaultSdkHttpFullRequest.Builder();
     }
 
-    /**
-     * Returns the optional stream containing the payload data to include for
-     * this request.
-     * <br/>
-     * Not all requests will contain payload data.
-     *
-     * @return The optional stream containing the payload data to include for this request or null if there is no payload.
-     */
-    InputStream getContent();
+    @Override
+    SdkHttpFullRequest.Builder toBuilder();
 
     /**
-     * Builder interface for {@link SdkHttpFullRequest}.
+     * @return The optional {@link ContentStreamProvider} for this request.
      */
-    @ReviewBeforeRelease("Extending SdkHttpRequest is dangerous, because this is mutable, but it's expected that "
-                         + "requests aren't.")
-    interface Builder extends CopyableBuilder<Builder, SdkHttpFullRequest>, SdkHttpFullRequest {
+    Optional<ContentStreamProvider> contentStreamProvider();
+
+    /**
+     * A mutable builder for {@link SdkHttpFullRequest}. An instance of this can be created using
+     * {@link SdkHttpFullRequest#builder()}.
+     */
+    interface Builder extends SdkHttpRequest.Builder {
         /**
-         * Adds the header to the builder.
+         * Convenience method to set the {@link #protocol()}, {@link #host()}, {@link #port()}, and
+         * {@link #encodedPath()} from a {@link URI} object.
          *
-         * <p>>Note that this does not merge with any values that may be pre-existing for that header,  it does a complete
-         * overwrite of this header key. Merging must be handled by the caller if desired.
-         * </p>
-         *
-         * @param key   Header name
-         * @param value Header value
+         * @param uri URI containing protocol, host, port and path.
          * @return This builder for method chaining.
          */
-        default Builder header(String key, String value) {
-            return header(key, singletonList(value));
+        @Override
+        default Builder uri(URI uri) {
+            return this.protocol(uri.getScheme())
+                       .host(uri.getHost())
+                       .port(uri.getPort())
+                       .encodedPath(SdkHttpUtils.appendUri(uri.getRawPath(), encodedPath()));
         }
 
         /**
-         * Adds the header values to the builder.
-         *
-         * <p>>Note that this does not merge with any values that may be pre-existing for that header,  it does a complete
-         * overwrite of this header key. Merging must be handled by the caller if desired.
-         * </p>
-         *
-         * @param key    Header name
-         * @param values List of values associated with this header key.
-         * @return This builder for method chaining.
+         * The protocol, exactly as it was configured with {@link #protocol(String)}.
          */
-        Builder header(String key, List<String> values);
+        @Override
+        String protocol();
 
         /**
-         * Adds the headers to the builder.
-         *
-         * <p>>Note that this does not merge with any values that may be pre-existing for that header,  it does a complete
-         * overwrite of each header key in the map. Merging must be handled by the caller if desired.
-         * </p>
-         *
-         * @param headers Headers to add
-         * @return This builder for method chaining.
+         * Configure a {@link SdkHttpRequest#protocol()} to be used in the created HTTP request. This is not validated until the
+         * http request is created.
          */
-        Builder headers(Map<String, List<String>> headers);
+        @Override
+        Builder protocol(String protocol);
 
         /**
-         * Sets the resource path on the builder.
-         *
-         * @param resourcePath New resource path.
-         * @return This builder for method chaining.
+         * The host, exactly as it was configured with {@link #host(String)}.
          */
-        Builder resourcePath(String resourcePath);
+        @Override
+        String host();
 
         /**
-         * Adds the query parameter to the builder.
-         *
-         * <p>>Note that this does not merge with any values that may be pre-existing for that parameter, it does a complete
-         * overwrite of the parameter. Merging must be handled by the caller if desired.
-         * </p>
-         *
-         * @param paramName  Name of the parameter to add
-         * @param paramValue Value for the query param.
-         * @return This builder for method chaining.
+         * Configure a {@link SdkHttpRequest#host()} to be used in the created HTTP request. This is not validated until the
+         * http request is created.
          */
-        default Builder queryParameter(String paramName, String paramValue) {
-            return queryParameter(paramName, singletonList(paramValue));
+        @Override
+        Builder host(String host);
+
+        /**
+         * The port, exactly as it was configured with {@link #port(Integer)}.
+         */
+        Integer port();
+
+        /**
+         * Configure a {@link SdkHttpRequest#port()} to be used in the created HTTP request. This is not validated until the
+         * http request is created. In order to simplify mapping from a {@link URI}, "-1" will be treated as "null" when the http
+         * request is created.
+         */
+        @Override
+        Builder port(Integer port);
+
+        /**
+         * The path, exactly as it was configured with {@link #encodedPath(String)}.
+         */
+        @Override
+        String encodedPath();
+
+        /**
+         * Configure an {@link SdkHttpRequest#encodedPath()} to be used in the created HTTP request. This is not validated
+         * until the http request is created. This path MUST be URL encoded.
+         *
+         * <p>Justification of requirements: The path must be encoded when it is configured, because there is no way for the HTTP
+         * implementation to distinguish a "/" that is part of a resource name that should be encoded as "%2F" from a "/" that is
+         * part of the actual path.</p>
+         */
+        @Override
+        Builder encodedPath(String path);
+
+        /**
+         * The query parameters, exactly as they were configured with {@link #rawQueryParameters(Map)},
+         * {@link #putRawQueryParameter(String, String)} and {@link #putRawQueryParameter(String, List)}.
+         */
+        @Override
+        Map<String, List<String>> rawQueryParameters();
+
+        /**
+         * Add a single un-encoded query parameter to be included in the created HTTP request.
+         *
+         * <p>This completely <b>OVERRIDES</b> any values already configured with this parameter name in the builder.</p>
+         *
+         * @param paramName The name of the query parameter to add
+         * @param paramValue The un-encoded value for the query parameter.
+         */
+        @Override
+        default Builder putRawQueryParameter(String paramName, String paramValue) {
+            return putRawQueryParameter(paramName, singletonList(paramValue));
         }
 
         /**
-         * Adds the query parameter with multiple values to the builder.
+         * Add a single un-encoded query parameter to be included in the created HTTP request.
          *
-         * <p>>Note that this does not merge with any values that may be pre-existing for that parameter, it does a complete
-         * overwrite of the parameter. Merging must be handled by the caller if desired.
-         * </p>
+         * <p>This will <b>ADD</b> the value to any existing values already configured with this parameter name in
+         * the builder.</p>
          *
-         * @param paramName   Name of the parameter to add
-         * @param paramValues List of values associated with this query parameter.
-         * @return This builder for method chaining.
+         * @param paramName The name of the query parameter to add
+         * @param paramValue The un-encoded value for the query parameter.
          */
-        Builder queryParameter(String paramName, List<String> paramValues);
+        @Override
+        Builder appendRawQueryParameter(String paramName, String paramValue);
 
         /**
-         * Adds the query parameters to the builder.
+         * Add a single un-encoded query parameter with multiple values to be included in the created HTTP request.
          *
-         * <p>>Note that this does not merge with any values that may be pre-existing,  it does a complete
-         * overwrite of each query parameter in the map. Merging must be handled by the caller if desired.
-         * </p>
+         * <p>This completely <b>OVERRIDES</b> any values already configured with this parameter name in the builder.</p>
          *
-         * @param queryParameters Query parameters to add
-         * @return This builder for method chaining.
+         * @param paramName The name of the query parameter to add
+         * @param paramValues The un-encoded values for the query parameter.
          */
-        Builder queryParameters(Map<String, List<String>> queryParameters);
+        @Override
+        Builder putRawQueryParameter(String paramName, List<String> paramValues);
 
         /**
-         * Removes all values for the query paramter from the builder.
+         * Configure an {@link SdkHttpRequest#rawQueryParameters()} to be used in the created HTTP request. This is not validated
+         * until the http request is created. This overrides any values currently configured in the builder. The query parameters
+         * MUST NOT be URL encoded.
          *
-         * @param paramName Query param to remove.
-         * @return This builder for method chaining.
+         * <p>Justification of requirements: The query parameters must not be encoded when they are configured because some HTTP
+         * implementations perform this encoding automatically.</p>
          */
+        @Override
+        Builder rawQueryParameters(Map<String, List<String>> queryParameters);
+
+        /**
+         * Remove all values for the requested query parameter from this builder.
+         */
+        @Override
         Builder removeQueryParameter(String paramName);
 
         /**
-         * Removes all query parameters from the builder.
-         *
-         * @return This builder for method chaining.
+         * Removes all query parameters from this builder.
          */
+        @Override
         Builder clearQueryParameters();
 
         /**
-         * Sets the endpoint for the builder.
-         *
-         * @param endpoint New endpoint.
-         * @return This builder for method chaining.
+         * The path, exactly as it was configured with {@link #method(SdkHttpMethod)}.
          */
-        Builder endpoint(URI endpoint);
+        @Override
+        SdkHttpMethod method();
 
         /**
-         * Sets the {@link SdkHttpMethod} for the builder.
-         *
-         * @param httpMethod New HTTP method.
-         * @return This builder for method chaining.
+         * Configure an {@link SdkHttpRequest#method()} to be used in the created HTTP request. This is not validated
+         * until the http request is created.
          */
-        Builder httpMethod(SdkHttpMethod httpMethod);
+        @Override
+        Builder method(SdkHttpMethod httpMethod);
 
         /**
-         * Sets the HTTP content for the builder.
+         * Perform a case-insensitive search for a particular header in this request, returning the first matching header, if one
+         * is found.
          *
-         * @param content New content.
-         * @return This builder for method chaining.
+         * <p>This is useful for headers like 'Content-Type' or 'Content-Length' of which there is expected to be only one value
+         * present.</p>
+         *
+         * <p>This is equivalent to invoking {@link SdkHttpUtils#firstMatchingHeader(Map, String)}</p>.
+         *
+         * @param header The header to search for (case insensitively).
+         * @return The first header that matched the requested one, or empty if one was not found.
          */
-        Builder content(InputStream content);
+        @Override
+        default Optional<String> firstMatchingHeader(String header) {
+            return SdkHttpUtils.firstMatchingHeader(headers(), header);
+        }
 
         /**
-         * Returns the optional stream containing the payload data to include for
-         * this request.
-         * <br/>
-         * Not all requests will contain payload data.
-         *
-         * @return The optional stream containing the payload data to include for this request or null if there is no payload.
+         * The query parameters, exactly as they were configured with {@link #headers(Map)},
+         * {@link #putHeader(String, String)} and {@link #putHeader(String, List)}.
          */
-        InputStream getContent();
+        @Override
+        Map<String, List<String>> headers();
 
+        /**
+         * Add a single header to be included in the created HTTP request.
+         *
+         * <p>This completely <b>OVERRIDES</b> any values already configured with this header name in the builder.</p>
+         *
+         * @param headerName The name of the header to add (eg. "Host")
+         * @param headerValue The value for the header
+         */
+        @Override
+        default Builder putHeader(String headerName, String headerValue) {
+            return putHeader(headerName, singletonList(headerValue));
+        }
+
+        /**
+         * Add a single header with multiple values to be included in the created HTTP request.
+         *
+         * <p>This completely <b>OVERRIDES</b> any values already configured with this header name in the builder.</p>
+         *
+         * @param headerName The name of the header to add
+         * @param headerValues The values for the header
+         */
+        @Override
+        Builder putHeader(String headerName, List<String> headerValues);
+
+        /**
+         * Add a single header to be included in the created HTTP request.
+         *
+         * <p>This will <b>ADD</b> the value to any existing values already configured with this header name in
+         * the builder.</p>
+         *
+         * @param headerName The name of the header to add
+         * @param headerValue The value for the header
+         */
+        @Override
+        Builder appendHeader(String headerName, String headerValue);
+
+        /**
+         * Configure an {@link SdkHttpRequest#headers()} to be used in the created HTTP request. This is not validated
+         * until the http request is created. This overrides any values currently configured in the builder.
+         */
+        @Override
+        Builder headers(Map<String, List<String>> headers);
+
+        /**
+         * Remove all values for the requested header from this builder.
+         */
+        @Override
+        Builder removeHeader(String headerName);
+
+        /**
+         * Removes all headers from this builder.
+         */
+        @Override
+        Builder clearHeaders();
+
+        /**
+         * Set the {@link ContentStreamProvider} for this request.
+         *
+         * @param contentStreamProvider The ContentStreamProvider.
+         * @return This object for method chaining.
+         */
+        Builder contentStreamProvider(ContentStreamProvider contentStreamProvider);
+
+        /**
+         * @return The {@link ContentStreamProvider} for this request.
+         */
+        ContentStreamProvider contentStreamProvider();
+
+        @Override
+        SdkHttpFullRequest.Builder copy();
+
+        @Override
+        SdkHttpFullRequest.Builder applyMutation(Consumer<SdkHttpRequest.Builder> mutator);
+
+        @Override
+        SdkHttpFullRequest build();
     }
 
 }

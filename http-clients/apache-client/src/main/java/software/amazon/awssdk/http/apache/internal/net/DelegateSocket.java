@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -23,11 +23,13 @@ import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.channels.SocketChannel;
+import software.amazon.awssdk.annotations.SdkInternalApi;
 
 /**
  * Socket delegate class. Subclasses could extend this class, so that
  * they only need to override methods they are interested in enhancing.
  */
+@SdkInternalApi
 public class DelegateSocket extends Socket {
 
     protected final Socket sock;

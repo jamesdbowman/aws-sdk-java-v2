@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,8 +16,6 @@
 package software.amazon.awssdk.http.apache.internal.impl;
 
 import static software.amazon.awssdk.utils.NumericUtils.saturatedCast;
-import static software.amazon.awssdk.utils.StringUtils.isNotBlank;
-import static software.amazon.awssdk.utils.StringUtils.lowerCase;
 
 import java.net.URI;
 import java.util.Arrays;
@@ -34,54 +32,61 @@ import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
-import software.amazon.awssdk.http.SdkHttpFullRequest;
+import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.http.HttpExecuteRequest;
 import software.amazon.awssdk.http.SdkHttpMethod;
+import software.amazon.awssdk.http.SdkHttpRequest;
 import software.amazon.awssdk.http.apache.internal.ApacheHttpRequestConfig;
 import software.amazon.awssdk.http.apache.internal.RepeatableInputStreamRequestEntity;
 import software.amazon.awssdk.http.apache.internal.utils.ApacheUtils;
+import software.amazon.awssdk.utils.http.SdkHttpUtils;
 
 /**
  * Responsible for creating Apache HttpClient 4 request objects.
  */
+@SdkInternalApi
 public class ApacheHttpRequestFactory {
 
     private static final String DEFAULT_ENCODING = "UTF-8";
 
     private static final List<String> IGNORE_HEADERS = Arrays.asList(HttpHeaders.CONTENT_LENGTH, HttpHeaders.HOST);
 
-    public HttpRequestBase create(final SdkHttpFullRequest request, final ApacheHttpRequestConfig requestConfig) {
-        URI endpoint = request.getEndpoint();
+    public HttpRequestBase create(final HttpExecuteRequest request, final ApacheHttpRequestConfig requestConfig) {
+        URI uri = request.httpRequest().getUri();
 
-        /*
-         * HttpClient cannot handle url in pattern of "http://host//path", so we
-         * have to escape the double-slash between endpoint and resource-path
-         * into "/%2F"
-         */
-        String uri = SdkHttpUtils.appendUri(endpoint.toString(), request
-                .getResourcePath(), true);
-        String encodedParams = SdkHttpUtils.encodeParameters(request);
-
-        if (isNotBlank(encodedParams)) {
-            uri += "?" + encodedParams;
-        }
-
-        final HttpRequestBase base = createApacheRequest(request, uri, encodedParams);
-        addHeadersToRequest(base, request);
-        addRequestConfig(base, request, requestConfig);
+        HttpRequestBase base = createApacheRequest(request, sanitizeUri(uri));
+        addHeadersToRequest(base, request.httpRequest());
+        addRequestConfig(base, request.httpRequest(), requestConfig);
 
         return base;
     }
 
+    /**
+     * The Apache HTTP client doesn't allow consecutive slashes in the URI. For S3
+     * and other AWS services, this is allowed and required. This methods replaces
+     * any occurrence of "//" in the URI path with "/%2F".
+     *
+     * @param uri The existing URI with double slashes not sanitized for Apache.
+     * @return a new String containing the modified URI
+     */
+    private String sanitizeUri(URI uri) {
+        String newPath = uri.getPath().replace("//", "/%2F");
+        return uri.toString().replace(uri.getPath(), newPath);
+    }
+
     private void addRequestConfig(final HttpRequestBase base,
-                                  final SdkHttpFullRequest request,
+                                  final SdkHttpRequest request,
                                   final ApacheHttpRequestConfig requestConfig) {
-        final int connectTimeout = saturatedCast(requestConfig.connectionTimeout().toMillis());
-        final RequestConfig.Builder requestConfigBuilder = RequestConfig
+        int connectTimeout = saturatedCast(requestConfig.connectionTimeout().toMillis());
+        int connectAcquireTimeout = saturatedCast(requestConfig.connectionAcquireTimeout().toMillis());
+        RequestConfig.Builder requestConfigBuilder = RequestConfig
                 .custom()
-                .setConnectionRequestTimeout(connectTimeout)
+                .setConnectionRequestTimeout(connectAcquireTimeout)
                 .setConnectTimeout(connectTimeout)
                 .setSocketTimeout(saturatedCast(requestConfig.socketTimeout().toMillis()))
                 .setLocalAddress(requestConfig.localAddress());
+
+        ApacheUtils.disableNormalizeUri(requestConfigBuilder);
 
         /*
          * Enable 100-continue support for PUT operations, since this is
@@ -90,7 +95,7 @@ public class ApacheHttpRequestFactory {
          * don't want to do this for all operations since it will cause
          * extra latency in the network interaction.
          */
-        if (SdkHttpMethod.PUT == request.getHttpMethod() && requestConfig.expectContinueEnabled()) {
+        if (SdkHttpMethod.PUT == request.method() && requestConfig.expectContinueEnabled()) {
             requestConfigBuilder.setExpectContinueEnabled(true);
         }
 
@@ -98,8 +103,8 @@ public class ApacheHttpRequestFactory {
     }
 
 
-    private HttpRequestBase createApacheRequest(SdkHttpFullRequest request, String uri, String encodedParams) {
-        switch (request.getHttpMethod()) {
+    private HttpRequestBase createApacheRequest(HttpExecuteRequest request, String uri) {
+        switch (request.httpRequest().method()) {
             case HEAD:
                 return new HttpHead(uri);
             case GET:
@@ -109,19 +114,18 @@ public class ApacheHttpRequestFactory {
             case OPTIONS:
                 return new HttpOptions(uri);
             case PATCH:
-                return wrapEntity(request, new HttpPatch(uri), encodedParams);
+                return wrapEntity(request, new HttpPatch(uri));
             case POST:
-                return wrapEntity(request, new HttpPost(uri), encodedParams);
+                return wrapEntity(request, new HttpPost(uri));
             case PUT:
-                return wrapEntity(request, new HttpPut(uri), encodedParams);
+                return wrapEntity(request, new HttpPut(uri));
             default:
-                throw new RuntimeException("Unknown HTTP method name: " + request.getHttpMethod());
+                throw new RuntimeException("Unknown HTTP method name: " + request.httpRequest().method());
         }
     }
 
-    private HttpRequestBase wrapEntity(SdkHttpFullRequest request,
-                                       HttpEntityEnclosingRequestBase entityEnclosingRequest,
-                                       String encodedParams) {
+    private HttpRequestBase wrapEntity(HttpExecuteRequest request,
+                                       HttpEntityEnclosingRequestBase entityEnclosingRequest) {
 
         /*
          * We should never reuse the entity of the previous request, since
@@ -133,9 +137,9 @@ public class ApacheHttpRequestFactory {
          * preparation for the retry. Eventually, these wrappers would
          * return incorrect validation result.
          */
-        if (request.getContent() != null) {
+        if (request.contentStreamProvider().isPresent()) {
             HttpEntity entity = new RepeatableInputStreamRequestEntity(request);
-            if (request.getHeaders().get(HttpHeaders.CONTENT_LENGTH) == null) {
+            if (request.httpRequest().headers().get(HttpHeaders.CONTENT_LENGTH) == null) {
                 entity = ApacheUtils.newBufferedHttpEntity(entity);
             }
             entityEnclosingRequest.setEntity(entity);
@@ -147,43 +151,28 @@ public class ApacheHttpRequestFactory {
     /**
      * Configures the headers in the specified Apache HTTP request.
      */
-    private void addHeadersToRequest(HttpRequestBase httpRequest, SdkHttpFullRequest request) {
+    private void addHeadersToRequest(HttpRequestBase httpRequest, SdkHttpRequest request) {
 
-        httpRequest.addHeader(HttpHeaders.HOST, getHostHeaderValue(request.getEndpoint()));
+        httpRequest.addHeader(HttpHeaders.HOST, getHostHeaderValue(request));
 
 
         // Copy over any other headers already in our request
-        request.getHeaders().entrySet().stream()
-                /*
-                 * HttpClient4 fills in the Content-Length header and complains if
-                 * it's already present, so we skip it here. We also skip the Host
-                 * header to avoid sending it twice, which will interfere with some
-                 * signing schemes.
-                 */
-                .filter(e -> !IGNORE_HEADERS.contains(e.getKey()))
-                .forEach(e -> e.getValue().stream()
-                        .forEach(h -> httpRequest.addHeader(e.getKey(), h)));
-
-        /* Set content type and encoding */
-        if (httpRequest.getHeaders(HttpHeaders.CONTENT_TYPE) == null ||
-            httpRequest.getHeaders(HttpHeaders.CONTENT_TYPE).length == 0) {
-            httpRequest.addHeader(HttpHeaders.CONTENT_TYPE,
-                                  "application/x-www-form-urlencoded; " +
-                                  "charset=" + lowerCase(DEFAULT_ENCODING));
-        }
+        request.headers().entrySet().stream()
+               /*
+                * HttpClient4 fills in the Content-Length header and complains if
+                * it's already present, so we skip it here. We also skip the Host
+                * header to avoid sending it twice, which will interfere with some
+                * signing schemes.
+                */
+               .filter(e -> !IGNORE_HEADERS.contains(e.getKey()))
+               .forEach(e -> e.getValue().forEach(h -> httpRequest.addHeader(e.getKey(), h)));
     }
 
-    private String getHostHeaderValue(final URI endpoint) {
-        /*
-         * Apache HttpClient omits the port number in the Host header (even if
-         * we explicitly specify it) if it's the default port for the protocol
-         * in use. To ensure that we use the same Host header in the request and
-         * in the calculated string to sign (even if Apache HttpClient changed
-         * and started honoring our explicit host with endpoint), we follow this
-         * same behavior here and in the QueryString signer.
-         */
-        return SdkHttpUtils.isUsingNonDefaultPort(endpoint)
-                ? endpoint.getHost() + ":" + endpoint.getPort()
-                : endpoint.getHost();
+    private String getHostHeaderValue(SdkHttpRequest request) {
+        // Apache doesn't allow us to include the port in the host header if it's a standard port for that protocol. For that
+        // reason, we don't include the port when we sign the message. See {@link SdkHttpRequest#port()}.
+        return !SdkHttpUtils.isUsingStandardPort(request.protocol(), request.port())
+                ? request.host() + ":" + request.port()
+                : request.host();
     }
 }

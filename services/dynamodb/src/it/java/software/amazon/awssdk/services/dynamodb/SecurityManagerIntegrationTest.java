@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import static org.junit.Assert.assertNotNull;
 import org.junit.AfterClass;
 import org.junit.Test;
 import software.amazon.awssdk.services.dynamodb.model.ListTablesRequest;
-import software.amazon.awssdk.test.AwsIntegrationTestBase;
+import software.amazon.awssdk.testutils.service.AwsIntegrationTestBase;
 
 public class SecurityManagerIntegrationTest extends AwsIntegrationTestBase {
 
@@ -41,7 +41,7 @@ public class SecurityManagerIntegrationTest extends AwsIntegrationTestBase {
         System.setProperty(JAVA_SECURITY_POLICY_PROPERTY, getPolicyUrl());
         SecurityManager securityManager = new SecurityManager();
         System.setSecurityManager(securityManager);
-        DynamoDBClient ddb = DynamoDBClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
+        DynamoDbClient ddb = DynamoDbClient.builder().credentialsProvider(CREDENTIALS_PROVIDER_CHAIN).build();
         assertNotNull(ddb.listTables(ListTablesRequest.builder().build()));
     }
 

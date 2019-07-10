@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -19,8 +19,9 @@ import static org.hamcrest.Matchers.lessThan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
+import org.apache.log4j.BasicConfigurator;
 import org.junit.Test;
-import software.amazon.awssdk.SdkGlobalTime;
+import software.amazon.awssdk.core.SdkGlobalTime;
 import software.amazon.awssdk.services.sqs.model.ListQueuesRequest;
 
 /**
@@ -35,18 +36,23 @@ public class SqsIntegrationTest extends IntegrationTestBase {
      */
     @Test
     public void clockSkewFailure_CorrectsGlobalTimeOffset() throws Exception {
+        BasicConfigurator.configure();
         final int originalOffset = SdkGlobalTime.getGlobalTimeOffset();
         final int skew = 3600;
 
         SdkGlobalTime.setGlobalTimeOffset(skew);
         assertEquals(skew, SdkGlobalTime.getGlobalTimeOffset());
-        SQSAsyncClient sqsClient = createSqsAyncClient();
-        sqsClient.listQueues(ListQueuesRequest.builder().build()).join();
-        assertThat("Clockskew is fixed!", SdkGlobalTime.getGlobalTimeOffset(), lessThan(skew));
-        // subsequent changes to the global time offset won't affect existing client
-        SdkGlobalTime.setGlobalTimeOffset(skew);
-        sqsClient.listQueues(ListQueuesRequest.builder().build());
-        assertEquals(skew, SdkGlobalTime.getGlobalTimeOffset());
+        SqsAsyncClient sqsClient = createSqsAyncClient();
+
+        sqsClient.listQueues(ListQueuesRequest.builder().build()).thenCompose( __ -> {
+            assertThat("Clockskew is fixed!", SdkGlobalTime.getGlobalTimeOffset(), lessThan(skew));
+            // subsequent changes to the global time offset won't affect existing client
+            SdkGlobalTime.setGlobalTimeOffset(skew);
+            return sqsClient.listQueues(ListQueuesRequest.builder().build());
+        }).thenAccept( __ ->  {
+            assertEquals(skew, SdkGlobalTime.getGlobalTimeOffset());
+        }).join();
+
         sqsClient.close();
 
         SdkGlobalTime.setGlobalTimeOffset(originalOffset);

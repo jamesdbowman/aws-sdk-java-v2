@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
 
 package software.amazon.awssdk.codegen.emitters.tasks;
 
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
-import software.amazon.awssdk.codegen.emitters.FreemarkerGeneratorTask;
 import software.amazon.awssdk.codegen.emitters.GeneratorTask;
 import software.amazon.awssdk.codegen.emitters.GeneratorTaskParams;
-import software.amazon.awssdk.util.ImmutableMapParameter;
+import software.amazon.awssdk.codegen.emitters.PoetGeneratorTask;
+import software.amazon.awssdk.codegen.poet.model.BaseExceptionClass;
 
 public class BaseExceptionClassGeneratorTasks extends BaseGeneratorTasks {
 
@@ -36,23 +36,13 @@ public class BaseExceptionClassGeneratorTasks extends BaseGeneratorTasks {
      */
     @Override
     protected boolean hasTasks() {
-
         return model.getCustomizationConfig().getSdkModeledExceptionBaseClassName() == null;
     }
 
     @Override
     protected List<GeneratorTask> createTasks() throws Exception {
         info("Emitting Base Service Exception class");
-        final String baseClassName = model.getSdkModeledExceptionBaseClassName();
-        return Collections.singletonList(
-                new FreemarkerGeneratorTask(modelClassDir,
-                                            baseClassName,
-                                            freemarker.getBaseExceptionClassTemplate(),
-                                            ImmutableMapParameter.of(
-                                                    "fileHeader", model.getFileHeader(),
-                                                    "className", baseClassName,
-                                                    "metadata", model.getMetadata(),
-                                                    "baseExceptionFqcn", model.getServiceBaseExceptionFqcn())));
+        return Arrays.asList(new PoetGeneratorTask(modelClassDir, model.getFileHeader(), new BaseExceptionClass(model)));
     }
 
 }

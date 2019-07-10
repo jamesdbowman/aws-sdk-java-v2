@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -19,12 +19,18 @@ import static software.amazon.awssdk.utils.StringUtils.lowerCase;
 
 import java.util.function.Supplier;
 import org.slf4j.LoggerFactory;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
 
+@SdkProtectedApi
 public final class Logger {
     private final org.slf4j.Logger log;
 
     Logger(org.slf4j.Logger log) {
         this.log = log;
+    }
+
+    public org.slf4j.Logger logger() {
+        return log;
     }
 
     /**
@@ -162,5 +168,14 @@ public final class Logger {
      */
     public static Logger loggerFor(Class<?> clz) {
         return new Logger(LoggerFactory.getLogger(clz));
+    }
+
+    /**
+     * Static factory to get a logger instance with a specific name.
+     * @param name - The name of the logger to create
+     * @return a Logger instance
+     */
+    public static Logger loggerFor(String name) {
+        return new Logger(LoggerFactory.getLogger(name));
     }
 }

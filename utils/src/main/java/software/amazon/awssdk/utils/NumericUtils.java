@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,9 +15,13 @@
 
 package software.amazon.awssdk.utils;
 
-import software.amazon.awssdk.annotation.ReviewBeforeRelease;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
 
-public class NumericUtils {
+@SdkProtectedApi
+public final class NumericUtils {
+
+    private NumericUtils() {
+    }
 
     /**
      * Returns the {@code int} nearest in value to {@code value}.
@@ -27,7 +31,6 @@ public class NumericUtils {
      * {@link Integer#MAX_VALUE} if it is too large, or {@link Integer#MIN_VALUE} if it is too
      * small
      */
-    @ReviewBeforeRelease("Copied from Guava, confirm this is okay and copy tests too")
     public static int saturatedCast(long value) {
         if (value > Integer.MAX_VALUE) {
             return Integer.MAX_VALUE;
@@ -37,4 +40,5 @@ public class NumericUtils {
         }
         return (int) value;
     }
+
 }

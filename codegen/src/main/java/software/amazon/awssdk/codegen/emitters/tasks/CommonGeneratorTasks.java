@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -35,7 +35,6 @@ class CommonGeneratorTasks implements Iterable<GeneratorTask> {
         return new CompositeIterable<>(new CommonClientGeneratorTasks(params),
                                        new SyncClientGeneratorTasks(params),
                                        new MarshallerGeneratorTasks(params),
-                                       new UnmarshallerGeneratorTasks(params),
                                        new ModelClassGeneratorTasks(params),
                                        new PackageInfoGeneratorTasks(params),
                                        new BaseExceptionClassGeneratorTasks(params));

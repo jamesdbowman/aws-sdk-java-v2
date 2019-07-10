@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@ package software.amazon.awssdk.services.cloudtrail;
 
 import java.io.IOException;
 import org.junit.BeforeClass;
-import software.amazon.awssdk.auth.StaticCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.test.AwsIntegrationTestBase;
+import software.amazon.awssdk.testutils.service.AwsIntegrationTestBase;
 
 public class IntegrationTestBase extends AwsIntegrationTestBase {
 
@@ -30,11 +30,10 @@ public class IntegrationTestBase extends AwsIntegrationTestBase {
 
     @BeforeClass
     public static void setUp() throws IOException {
-        setUpCredentials();
         System.setProperty("software.amazon.awssdk.sdk.disableCertChecking", "true");
-        cloudTrail = CloudTrailClient.builder().credentialsProvider(new StaticCredentialsProvider(getCredentials())).build();
+        cloudTrail = CloudTrailClient.builder().credentialsProvider(StaticCredentialsProvider.create(getCredentials())).build();
         s3 = S3Client.builder()
-                     .credentialsProvider(new StaticCredentialsProvider(getCredentials()))
+                     .credentialsProvider(StaticCredentialsProvider.create(getCredentials()))
                      .region(region)
                      .build();
     }

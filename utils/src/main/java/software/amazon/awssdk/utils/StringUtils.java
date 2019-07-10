@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -13,30 +13,14 @@
  * permissions and limitations under the License.
  */
 
-/*
- * Originally licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-
 package software.amazon.awssdk.utils;
 
+import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.Charset;
 import java.util.Locale;
-import software.amazon.awssdk.annotation.ReviewBeforeRelease;
-import software.amazon.awssdk.annotation.SdkInternalApi;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
 
 /**
  * <p>Operations on {@link java.lang.String} that are
@@ -122,9 +106,8 @@ import software.amazon.awssdk.annotation.SdkInternalApi;
  * <p>#ThreadSafe#</p>
  * @see java.lang.String
  */
-@ReviewBeforeRelease("Remove the methods we don't end up using (and we've removed software.amazon.awssdk.util.StringUtils).")
-@SdkInternalApi
-public class StringUtils {
+@SdkProtectedApi
+public final class StringUtils {
     // Performance testing notes (JDK 1.4, Jul03, scolebourne)
     // Whitespace:
     // Character.isWhitespace() is faster than WHITESPACE.indexOf()
@@ -142,24 +125,9 @@ public class StringUtils {
     // (not sure who tested this)
 
     /**
-     * A String for a space character.
-     */
-    public static final String SPACE = " ";
-
-    /**
      * The empty String {@code ""}.
      */
-    public static final String EMPTY = "";
-
-    /**
-     * Represents a failed index search.
-     */
-    public static final int INDEX_NOT_FOUND = -1;
-
-    /**
-     * <p>The maximum size to which the padding constant(s) can expand.</p>
-     */
-    private static final int PAD_LIMIT = 8192;
+    private static final String EMPTY = "";
 
     /**
      * <p>{@code StringUtils} instances should NOT be constructed in
@@ -256,11 +224,7 @@ public class StringUtils {
      * {@code null}.</p>
      *
      * <p>The String is trimmed using {@link String#trim()}.
-     * Trim removes start and end characters &lt;= 32.
-     * To strip whitespace use {@link #strip(String)}.</p>
-     *
-     * <p>To trim your choice of characters, use the
-     * {@link #strip(String, String)} methods.</p>
+     * Trim removes start and end characters &lt;= 32.</p>
      *
      * <pre>
      * StringUtils.trim(null)          = null
@@ -283,8 +247,7 @@ public class StringUtils {
      * empty ("") after the trim or if it is {@code null}.
      *
      * <p>The String is trimmed using {@link String#trim()}.
-     * Trim removes start and end characters &lt;= 32.
-     * To strip whitespace use {@link #stripToNull(String)}.</p>
+     * Trim removes start and end characters &lt;= 32.</p>
      *
      * <pre>
      * StringUtils.trimToNull(null)          = null
@@ -300,7 +263,7 @@ public class StringUtils {
      * @since 2.0
      */
     public static String trimToNull(final String str) {
-        final String ts = trim(str);
+        String ts = trim(str);
         return isEmpty(ts) ? null : ts;
     }
 
@@ -310,8 +273,7 @@ public class StringUtils {
      * is empty ("") after the trim or if it is {@code null}.
      *
      * <p>The String is trimmed using {@link String#trim()}.
-     * Trim removes start and end characters &lt;= 32.
-     * To strip whitespace use {@link #stripToEmpty(String)}.</p>
+     * Trim removes start and end characters &lt;= 32.</p>
      *
      * <pre>
      * StringUtils.trimToEmpty(null)          = ""
@@ -546,18 +508,18 @@ public class StringUtils {
             return str;
         }
 
-        final int firstCodepoint = str.codePointAt(0);
-        final int newCodePoint = Character.toTitleCase(firstCodepoint);
+        int firstCodepoint = str.codePointAt(0);
+        int newCodePoint = Character.toTitleCase(firstCodepoint);
         if (firstCodepoint == newCodePoint) {
             // already capitalized
             return str;
         }
 
-        final int[] newCodePoints = new int[str.length()]; // cannot be longer than the char array
+        int[] newCodePoints = new int[str.length()]; // cannot be longer than the char array
         int outOffset = 0;
         newCodePoints[outOffset++] = newCodePoint; // copy the first codepoint
         for (int inOffset = Character.charCount(firstCodepoint); inOffset < str.length(); ) {
-            final int codepoint = str.codePointAt(inOffset);
+            int codepoint = str.codePointAt(inOffset);
             newCodePoints[outOffset++] = codepoint; // copy the remaining ones
             inOffset += Character.charCount(codepoint);
         }
@@ -586,21 +548,61 @@ public class StringUtils {
             return str;
         }
 
-        final int firstCodepoint = str.codePointAt(0);
-        final int newCodePoint = Character.toLowerCase(firstCodepoint);
+        int firstCodepoint = str.codePointAt(0);
+        int newCodePoint = Character.toLowerCase(firstCodepoint);
         if (firstCodepoint == newCodePoint) {
             // already capitalized
             return str;
         }
 
-        final int[] newCodePoints = new int[str.length()]; // cannot be longer than the char array
+        int[] newCodePoints = new int[str.length()]; // cannot be longer than the char array
         int outOffset = 0;
         newCodePoints[outOffset++] = newCodePoint; // copy the first codepoint
         for (int inOffset = Character.charCount(firstCodepoint); inOffset < str.length(); ) {
-            final int codepoint = str.codePointAt(inOffset);
+            int codepoint = str.codePointAt(inOffset);
             newCodePoints[outOffset++] = codepoint; // copy the remaining ones
             inOffset += Character.charCount(codepoint);
         }
         return new String(newCodePoints, 0, outOffset);
+    }
+
+    /**
+     * Encode the given bytes as a string using the given charset
+     * @throws UncheckedIOException with a {@link CharacterCodingException} as the cause if the bytes cannot be encoded using the
+     * provided charset.
+     */
+    public static String fromBytes(byte[] bytes, Charset charset) throws UncheckedIOException {
+        try {
+            return charset.newDecoder().decode(ByteBuffer.wrap(bytes)).toString();
+        } catch (CharacterCodingException e) {
+            throw new UncheckedIOException("Cannot encode string.", e);
+        }
+    }
+
+    /**
+     * Tests if this string starts with the specified prefix ignoring case considerations.
+     *
+     * @param str the string to be tested
+     * @param prefix the prefix
+     * @return true if the string starts with the prefix ignoring case
+     */
+    public static boolean startsWithIgnoreCase(String str, String prefix) {
+        return str.regionMatches(true, 0, prefix, 0, prefix.length());
+    }
+
+    /**
+     * Replace the prefix of the string provided ignoring case considerations.
+     *
+     * <p>
+     * The unmatched part is unchanged.
+     *
+     *
+     * @param str the string to replace
+     * @param prefix the prefix to find
+     * @param replacement the replacement
+     * @return the replaced string
+     */
+    public static String replacePrefixIgnoreCase(String str, String prefix, String replacement) {
+        return str.replaceFirst("(?i)" + prefix, replacement);
     }
 }

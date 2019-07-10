@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -24,8 +24,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import software.amazon.awssdk.SdkGlobalTime;
-import software.amazon.awssdk.auth.StaticCredentialsProvider;
+import software.amazon.awssdk.core.SdkGlobalTime;
 import software.amazon.awssdk.services.directconnect.model.CreateConnectionRequest;
 import software.amazon.awssdk.services.directconnect.model.CreateConnectionResponse;
 import software.amazon.awssdk.services.directconnect.model.DeleteConnectionRequest;
@@ -33,9 +32,13 @@ import software.amazon.awssdk.services.directconnect.model.DescribeConnectionsRe
 import software.amazon.awssdk.services.directconnect.model.DescribeConnectionsResponse;
 import software.amazon.awssdk.services.directconnect.model.DescribeLocationsRequest;
 import software.amazon.awssdk.services.directconnect.model.DescribeLocationsResponse;
+import software.amazon.awssdk.services.directconnect.model.DirectConnectException;
 import software.amazon.awssdk.services.directconnect.model.Location;
+import software.amazon.awssdk.testutils.Waiter;
+import software.amazon.awssdk.utils.Logger;
 
 public class ServiceIntegrationTest extends IntegrationTestBase {
+    private static final Logger log = Logger.loggerFor(ServiceIntegrationTest.class);
 
     private static final String CONNECTION_NAME = "test-connection-name";
     private static final String EXPECTED_CONNECTION_STATUS = "requested";
@@ -54,7 +57,14 @@ public class ServiceIntegrationTest extends IntegrationTestBase {
 
     @AfterClass
     public static void tearDown() {
-        dc.deleteConnection(DeleteConnectionRequest.builder().connectionId(connectionId).build());
+        boolean cleanedUp =
+                Waiter.run(() -> dc.deleteConnection(r -> r.connectionId(connectionId)))
+                      .ignoringException(DirectConnectException.class)
+                      .orReturnFalse();
+
+        if (!cleanedUp) {
+            log.warn(() -> "Failed to clean up connection: " + connectionId);
+        }
     }
 
     @Test
@@ -85,7 +95,7 @@ public class ServiceIntegrationTest extends IntegrationTestBase {
                 .build());
         assertThat(describeConnectionsResult.connections(), hasSize(1));
         assertEquals(connectionId, describeConnectionsResult.connections().get(0).connectionId());
-        assertEquals(EXPECTED_CONNECTION_STATUS, describeConnectionsResult.connections().get(0).connectionState());
+        assertEquals(EXPECTED_CONNECTION_STATUS, describeConnectionsResult.connections().get(0).connectionStateAsString());
     }
 
     /**
@@ -97,7 +107,7 @@ public class ServiceIntegrationTest extends IntegrationTestBase {
     public void testClockSkew() {
         SdkGlobalTime.setGlobalTimeOffset(3600);
         DirectConnectClient clockSkewClient = DirectConnectClient.builder()
-                .credentialsProvider(new StaticCredentialsProvider(credentials))
+                .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
                 .build();
 
         clockSkewClient.describeConnections(DescribeConnectionsRequest.builder().build());

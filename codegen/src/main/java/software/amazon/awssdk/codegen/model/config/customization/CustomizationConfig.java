@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,89 +16,26 @@
 package software.amazon.awssdk.codegen.model.config.customization;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import software.amazon.awssdk.codegen.model.config.ConstructorFormsWrapper;
-import software.amazon.awssdk.codegen.model.config.templates.CodeGenTemplatesConfig;
+import software.amazon.awssdk.core.traits.PayloadTrait;
+import software.amazon.awssdk.utils.AttributeMap;
 
 public class CustomizationConfig {
 
-    public static final CustomizationConfig DEFAULT = new CustomizationConfig();
     /**
      * List of 'convenience' overloads to generate for model classes. Convenience overloads expose a
      * different type that is adapted to the real type
      */
-    private final List<ConvenienceTypeOverload> convenienceTypeOverloads = new ArrayList<ConvenienceTypeOverload>();
-    /**
-     * The fully-qualified class name of the custom metric types to be collected by the client.
-     *
-     * Example: "software.amazon.awssdk.services.dynamodbv2.metrics.DynamoDBRequestMetric"
-     */
-    private String requestMetrics;
+    private final List<ConvenienceTypeOverload> convenienceTypeOverloads = new ArrayList<>();
 
-    /**
-     * True if we want to apply the ServiceClientHolderInputStream wrapper to all the stream
-     * response returned by the client; the purpose is to prevent the client being GCed before the
-     * response data is fully consumed.
-     */
-    private boolean serviceClientHoldInputStream;
-    /**
-     * The name of the operations where the LengthCheckInputStream wrapper should be applied to the
-     * response stream.
-     */
-    private List<String> operationsWithResponseStreamContentLengthValidation;
-    /**
-     * If specified the name of the custom exception unmarshaller (e.g. 'LegacyErrorUnmarshaller'
-     * for SimpleDB). If not set then the default unmarshaller of the protocol will be used (e.g.
-     * StandardErrorUnmarshaller for aws-query and rest-xml). Currently the exception unmarshaller
-     * for JSON protocols is not customizable.
-     */
-    private String customExceptionUnmarshallerImpl;
-    /**
-     * The name of the custom class returned by the client method getCacheResponseMetadata.
-     * Currently it's only set for SimpleDB ("SimpleDBResponseMetadata")
-     */
-    private String customResponseMetadataClassName;
-    /**
-     * True if the generated interface should NOT include shutdown() and getCachedResponseData
-     * methods. Currently it's only set true for SimpleDB.
-     */
-    private boolean skipInterfaceAdditions;
-    /**
-     * Overrides the request-level service name that will be used for request metrics and service
-     * exceptions. If not specified, the client will use the service interface name by default.
-     *
-     * Example: for backwards compatibility, this is set to "AmazonDynamoDBv2" for DynamoDB client.
-     *
-     * @see {@link software.amazon.awssdk.Request#getServiceName()}
-     */
-    private String customServiceNameForRequest;
-    /**
-     * True if the generated code should enable client-side validation on required input
-     * parameters.
-     */
-    private boolean requiredParamValidationEnabled;
     /**
      * Specifies the name of the client configuration class to use if a service
      * has a specific advanced client configuration class. Null if the service
      * does not have advanced configuration.
      */
     private String serviceSpecificClientConfigClass;
-    /**
-     * Specifies the name of the endpoint builder class to use if a service
-     * has a specific endpoint builder class. Null if the service does not have
-     * a specific endpoint builder.
-     */
-    private String serviceSpecificEndpointBuilderClass;
-    /**
-     * Specify additional constructor forms for a given model class.
-     */
-    private Map<String, ConstructorFormsWrapper> additionalShapeConstructors;
-    /**
-     * Specify simplified method forms for a given operation API.
-     */
-    private Map<String, SimpleMethodFormsWrapper> simpleMethods;
     /**
      * Specify shapes to be renamed.
      */
@@ -108,7 +45,6 @@ public class CustomizationConfig {
      * Custom service and intermediate model metadata properties.
      */
     private MetadataConfig customServiceMetadata;
-    private CodeGenTemplatesConfig customCodeTemplates;
     /**
      * Codegen customization mechanism shared by the .NET SDK
      */
@@ -120,15 +56,6 @@ public class CustomizationConfig {
      * Normally this is '__type' but Glacier has a custom error code field named simply 'code'.
      */
     private String customErrorCodeFieldName;
-    /**
-     * Customization to use the actual shape name of output shapes (as defined in the service model)
-     * to name the corresponding Java class. Normally we derive a new name using the operation name
-     * (i.e. PutFooResult). This is currently only exercised by SWF and mainly to preserve backwards
-     * compatibility due to a bug in the previous code generator. This is similar to the 'wrapper'
-     * trait in the normalized model but unlike for Query services, this customization has no affect
-     * on how the shape is represented on the wire.
-     */
-    private boolean useModeledOutputShapeNames;
     /**
      * Service specific base class for all modeled exceptions. By default this is syncInterface +
      * Exception (i.e. AmazonSQSException). Currently only DynamoDB Streams utilizes this
@@ -142,45 +69,27 @@ public class CustomizationConfig {
      */
     private String sdkModeledExceptionBaseClassName;
     /**
-     * Uses the specified SignerProvider implementation for this client.
-     */
-    private String customSignerProvider;
-    /**
      * Service calculates CRC32 checksum from compressed file when Accept-Encoding: gzip header is provided.
      */
     private boolean calculateCrc32FromCompressedData;
-    /**
-     * Custom file header for all generated Java classes. If not specified uses default Amazon
-     * license header.
-     */
-    private String customFileHeader;
-    /**
-     * Skips generating smoketests if set to true.
-     */
-    private boolean skipSmokeTests;
 
     /**
-     * Fully qualified class name of presigner extension class if it exists.
+     * Exclude the create() method on a client. This is useful for global services that will need a global region configured to
+     * work.
      */
-    private String presignersFqcn;
+    private boolean excludeClientCreateMethod = false;
 
     /**
-     * A set of deprecated code that generation can be suppressed for
+     * Configurations for the service that share model with other services. The models and non-request marshallers will be
+     * generated into the same directory as the provided service's models.
      */
-    private Set<DeprecatedSuppression> deprecatedSuppressions;
+    private ShareModelConfig shareModelConfig;
 
     /**
-     * A service name that this service client should share models with. The models and non-request marshallers will be generated
-     * into the same directory as the provided service's models.
-     */
-    private String shareModelsWith;
-
-    /**
-     * Expression to return a service specific instance of {@link software.amazon.awssdk.http.SdkHttpConfigurationOptions}. If
-     * present, the client builder will override the hook to return service specific HTTP config and inject this expression into
-     * that method. At some point we may want to have a more data driven way to declare these settings but right now we don't
-     * have any requirements to necessitate that and referencing handwritten code is simpler. See SWF customization.config
-     * for an example.
+     * Fully qualified name of the class that contains the custom http config. The class should expose a public static method
+     * with name "defaultHttpConfig" that returns an {@link AttributeMap} containing the desired http config defaults.
+     *
+     * See SWF customization.config for an example.
      */
     private String serviceSpecificHttpConfig;
 
@@ -195,81 +104,66 @@ public class CustomizationConfig {
      */
     private List<String> verifiedSimpleMethods = new ArrayList<>();
 
+    /**
+     * If a service isn't in the endpoints.json, the region that should be used for simple method integration tests.
+     */
+    private String defaultSimpleMethodTestRegion;
+
+    private List<String> deprecatedOperations = new ArrayList<>();
+
+    private List<String> deprecatedShapes = new ArrayList<>();
+
+    private String sdkRequestBaseClassName;
+
+    private String sdkResponseBaseClassName;
+
+    private Map<String, String> modelMarshallerDefaultValueSupplier = new HashMap<>();
+
+    private boolean useAutoConstructList = true;
+
+    private boolean useAutoConstructMap = true;
+
+    /**
+     * Custom Retry Policy
+     */
+    private String customRetryPolicy;
+
+    private boolean skipSyncClientGeneration;
+
+    /**
+     * Customization to attach the {@link PayloadTrait} to a member. Currently this is only used for
+     * S3 which doesn't model a member as a payload trait even though it is.
+     */
+    private Map<String, String> attachPayloadTraitToMember = new HashMap<>();
+
+    /**
+     * Custom Response metadata
+     */
+    private Map<String, String> customResponseMetadata;
+
+    /**
+     * Custom protocol factory implementation. Currently this is only respected by the REST-XML protocol as only S3
+     * needs a custom factory.
+     */
+    private String customProtocolFactoryFqcn;
+
+    /**
+     * Map of paginated operations that use custom class generation.
+     * Key - c2j operation name
+     * Value - indicates the type of pagination strategy to use
+     */
+    private Map<String, String> paginationCustomization;
+
+    /**
+     * Config to generate a utilities() in the low-level client
+     */
+    private UtilitiesMethod utilitiesMethod;
+
     private CustomizationConfig() {
     }
 
-    public String getRequestMetrics() {
-        return requestMetrics;
-    }
-
-    public void setRequestMetrics(String requestMetrics) {
-        this.requestMetrics = requestMetrics;
-    }
-
-    public boolean isServiceClientHoldInputStream() {
-        return serviceClientHoldInputStream;
-    }
-
-    public void setServiceClientHoldInputStream(boolean serviceClientHoldInputStream) {
-        this.serviceClientHoldInputStream = serviceClientHoldInputStream;
-    }
-
-    public List<String> getOperationsWithResponseStreamContentLengthValidation() {
-        return operationsWithResponseStreamContentLengthValidation;
-    }
-
-    public void setOperationsWithResponseStreamContentLengthValidation(
-            List<String> operationsWithResponseStreamContentLengthValidation) {
-        this.operationsWithResponseStreamContentLengthValidation = operationsWithResponseStreamContentLengthValidation;
-    }
-
-    public String getCustomExceptionUnmarshallerImpl() {
-        return customExceptionUnmarshallerImpl;
-    }
-
-    public void setCustomExceptionUnmarshallerImpl(String customExceptionUnmarshallerImpl) {
-        this.customExceptionUnmarshallerImpl = customExceptionUnmarshallerImpl;
-    }
-
-    public String getCustomResponseMetadataClassName() {
-        return customResponseMetadataClassName;
-    }
-
-    public void setCustomResponseMetadataClassName(String customResponseMetadataClassName) {
-        this.customResponseMetadataClassName = customResponseMetadataClassName;
-    }
-
-    public boolean isSkipInterfaceAdditions() {
-        return skipInterfaceAdditions;
-    }
-
-    public void setSkipInterfaceAdditions(boolean skipInterfaceAdditions) {
-        this.skipInterfaceAdditions = skipInterfaceAdditions;
-    }
-
-    public String getCustomServiceNameForRequest() {
-        return customServiceNameForRequest;
-    }
-
-    public void setCustomServiceNameForRequest(String customServiceNameForRequest) {
-        this.customServiceNameForRequest = customServiceNameForRequest;
-    }
-
-    public CodeGenTemplatesConfig getCustomCodeTemplates() {
-        return customCodeTemplates;
-    }
-
-    public void setCustomCodeTemplates(CodeGenTemplatesConfig customCodeTemplates) {
-        this.customCodeTemplates = customCodeTemplates;
-    }
-
-    public Map<String, ConstructorFormsWrapper> getAdditionalShapeConstructors() {
-        return additionalShapeConstructors;
-    }
-
-    public void setAdditionalShapeConstructors(
-            Map<String, ConstructorFormsWrapper> additionalConstructors) {
-        this.additionalShapeConstructors = additionalConstructors;
+    public static CustomizationConfig create() {
+        return new CustomizationConfig();
     }
 
     public Map<String, OperationModifier> getOperationModifiers() {
@@ -304,56 +198,12 @@ public class CustomizationConfig {
         this.shapeModifiers = shapeModifiers;
     }
 
-    public Map<String, SimpleMethodFormsWrapper> getSimpleMethods() {
-        return simpleMethods;
-    }
-
-    public void setSimpleMethods(Map<String, SimpleMethodFormsWrapper> simpleMethods) {
-        this.simpleMethods = simpleMethods;
-    }
-
-    public boolean isRequiredParamValidationEnabled() {
-        return requiredParamValidationEnabled;
-    }
-
-    public void setRequiredParamValidationEnabled(boolean requiredParamValidationEnabled) {
-        this.requiredParamValidationEnabled = requiredParamValidationEnabled;
-    }
-
     public String getServiceSpecificClientConfigClass() {
         return serviceSpecificClientConfigClass;
     }
 
     public void setServiceSpecificClientConfigClass(String serviceSpecificClientConfig) {
         this.serviceSpecificClientConfigClass = serviceSpecificClientConfig;
-    }
-
-    public String getServiceSpecificEndpointBuilderClass() {
-        return serviceSpecificEndpointBuilderClass;
-    }
-
-    public void setServiceSpecificEndpointBuilderClass(String serviceSpecificEndpointBuilderClass) {
-        this.serviceSpecificEndpointBuilderClass = serviceSpecificEndpointBuilderClass;
-    }
-
-    /**
-     * Customization to generate a method overload for a member setter that takes a string rather
-     * than an InputStream. Currently only used by Lambda
-     */
-    public void setStringOverloadForInputStreamMember(
-            StringOverloadForInputStreamMember stringOverloadForInputStreamMember) {
-        this.convenienceTypeOverloads
-                .add(stringOverloadForInputStreamMember.getConvenienceTypeOverload());
-    }
-
-    /**
-     * Customization to generate a method overload for a member setter that takes a string rather
-     * than an ByteBuffer. Currently only used by Lambda
-     */
-    public void setStringOverloadForByteBufferMember(
-            StringOverloadForByteBufferMember stringOverloadForByteBufferMember) {
-        this.convenienceTypeOverloads
-                .add(stringOverloadForByteBufferMember.getConvenienceTypeOverload());
     }
 
     public List<ConvenienceTypeOverload> getConvenienceTypeOverloads() {
@@ -380,14 +230,6 @@ public class CustomizationConfig {
         this.customErrorCodeFieldName = customErrorCodeFieldName;
     }
 
-    public boolean useModeledOutputShapeNames() {
-        return useModeledOutputShapeNames;
-    }
-
-    public void setUseModeledOutputShapeNames(boolean useModeledOutputShapeNames) {
-        this.useModeledOutputShapeNames = useModeledOutputShapeNames;
-    }
-
     public String getSdkModeledExceptionBaseClassName() {
         return sdkModeledExceptionBaseClassName;
     }
@@ -396,73 +238,29 @@ public class CustomizationConfig {
         this.sdkModeledExceptionBaseClassName = sdkModeledExceptionBaseClassName;
     }
 
-    public String getCustomSignerProvider() {
-        return customSignerProvider;
-    }
-
-    public void setCustomSignerProvider(String customSignerProvider) {
-        this.customSignerProvider = customSignerProvider;
-    }
-
     public boolean isCalculateCrc32FromCompressedData() {
         return calculateCrc32FromCompressedData;
     }
 
     public void setCalculateCrc32FromCompressedData(
-            boolean calculateCrc32FromCompressedData) {
+        boolean calculateCrc32FromCompressedData) {
         this.calculateCrc32FromCompressedData = calculateCrc32FromCompressedData;
     }
 
-    public String getCustomFileHeader() {
-        return customFileHeader;
+    public boolean isExcludeClientCreateMethod() {
+        return excludeClientCreateMethod;
     }
 
-    public void setCustomFileHeader(String customFileHeader) {
-        this.customFileHeader = customFileHeader;
+    public void setExcludeClientCreateMethod(boolean excludeClientCreateMethod) {
+        this.excludeClientCreateMethod = excludeClientCreateMethod;
     }
 
-    public boolean isSkipSmokeTests() {
-        return skipSmokeTests;
+    public ShareModelConfig getShareModelConfig() {
+        return shareModelConfig;
     }
 
-    public void setSkipSmokeTests(boolean skipSmokeTests) {
-        this.skipSmokeTests = skipSmokeTests;
-    }
-
-    public String getPresignersFqcn() {
-        return presignersFqcn;
-    }
-
-    public void setPresignersFqcn(String presignersFqcn) {
-        this.presignersFqcn = presignersFqcn;
-    }
-
-    public Set<DeprecatedSuppression> getDeprecatedSuppressions() {
-        return deprecatedSuppressions;
-    }
-
-    public void setDeprecatedSuppressions(Set<DeprecatedSuppression> deprecatedSuppressions) {
-        this.deprecatedSuppressions = deprecatedSuppressions;
-    }
-
-    public boolean emitClientMutationMethods() {
-        return !shouldSuppress(DeprecatedSuppression.ClientMutationMethods);
-    }
-
-    public boolean emitClientConstructors() {
-        return !shouldSuppress(DeprecatedSuppression.ClientConstructors);
-    }
-
-    private boolean shouldSuppress(DeprecatedSuppression suppression) {
-        return deprecatedSuppressions != null && deprecatedSuppressions.contains(suppression);
-    }
-
-    public String getShareModelsWith() {
-        return shareModelsWith;
-    }
-
-    public void setShareModelsWith(String shareModelsWith) {
-        this.shareModelsWith = shareModelsWith;
+    public void setShareModelConfig(ShareModelConfig shareModelConfig) {
+        this.shareModelConfig = shareModelConfig;
     }
 
     public String getServiceSpecificHttpConfig() {
@@ -487,5 +285,125 @@ public class CustomizationConfig {
 
     public void setVerifiedSimpleMethods(List<String> verifiedSimpleMethods) {
         this.verifiedSimpleMethods = verifiedSimpleMethods;
+    }
+
+    public String getDefaultSimpleMethodTestRegion() {
+        return defaultSimpleMethodTestRegion;
+    }
+
+    public void setDefaultSimpleMethodTestRegion(String defaultSimpleMethodTestRegion) {
+        this.defaultSimpleMethodTestRegion = defaultSimpleMethodTestRegion;
+    }
+
+    public List<String> getDeprecatedOperations() {
+        return deprecatedOperations;
+    }
+
+    public void setDeprecatedOperations(List<String> deprecatedOperations) {
+        this.deprecatedOperations = deprecatedOperations;
+    }
+
+    public List<String> getDeprecatedShapes() {
+        return deprecatedShapes;
+    }
+
+    public void setDeprecatedShapes(List<String> deprecatedShapes) {
+        this.deprecatedShapes = deprecatedShapes;
+    }
+
+    public String getSdkRequestBaseClassName() {
+        return sdkRequestBaseClassName;
+    }
+
+    public void setSdkRequestBaseClassName(String sdkRequestBaseClassName) {
+        this.sdkRequestBaseClassName = sdkRequestBaseClassName;
+    }
+
+    public String getSdkResponseBaseClassName() {
+        return sdkResponseBaseClassName;
+    }
+
+    public void setSdkResponseBaseClassName(String sdkResponseBaseClassName) {
+        this.sdkResponseBaseClassName = sdkResponseBaseClassName;
+    }
+
+    public Map<String, String> getModelMarshallerDefaultValueSupplier() {
+        return modelMarshallerDefaultValueSupplier;
+    }
+
+    public void setModelMarshallerDefaultValueSupplier(Map<String, String> modelMarshallerDefaultValueSupplier) {
+        this.modelMarshallerDefaultValueSupplier = modelMarshallerDefaultValueSupplier;
+    }
+
+    public boolean isUseAutoConstructList() {
+        return useAutoConstructList;
+    }
+
+    public void setUseAutoConstructList(boolean useAutoConstructList) {
+        this.useAutoConstructList = useAutoConstructList;
+    }
+
+    public boolean isUseAutoConstructMap() {
+        return useAutoConstructMap;
+    }
+
+    public void setUseAutoConstructMap(boolean useAutoConstructMap) {
+        this.useAutoConstructMap = useAutoConstructMap;
+    }
+
+    public String getCustomRetryPolicy() {
+        return customRetryPolicy;
+    }
+
+    public void setCustomRetryPolicy(String customRetryPolicy) {
+        this.customRetryPolicy = customRetryPolicy;
+    }
+
+    public boolean isSkipSyncClientGeneration() {
+        return skipSyncClientGeneration;
+    }
+
+    public void setSkipSyncClientGeneration(boolean skipSyncClientGeneration) {
+        this.skipSyncClientGeneration = skipSyncClientGeneration;
+    }
+
+    public Map<String, String> getAttachPayloadTraitToMember() {
+        return attachPayloadTraitToMember;
+    }
+
+    public void setAttachPayloadTraitToMember(Map<String, String> attachPayloadTraitToMember) {
+        this.attachPayloadTraitToMember = attachPayloadTraitToMember;
+    }
+
+    public Map<String, String> getCustomResponseMetadata() {
+        return customResponseMetadata;
+    }
+
+    public void setCustomResponseMetadata(Map<String, String> customResponseMetadata) {
+        this.customResponseMetadata = customResponseMetadata;
+    }
+
+    public String getCustomProtocolFactoryFqcn() {
+        return customProtocolFactoryFqcn;
+    }
+
+    public void setCustomProtocolFactoryFqcn(String customProtocolFactoryFqcn) {
+        this.customProtocolFactoryFqcn = customProtocolFactoryFqcn;
+    }
+
+    public Map<String, String> getPaginationCustomization() {
+        return paginationCustomization;
+    }
+
+    public void setPaginationCustomization(Map<String, String> paginationCustomization) {
+        this.paginationCustomization = paginationCustomization;
+    }
+
+    public UtilitiesMethod getUtilitiesMethod() {
+        return utilitiesMethod;
+    }
+
+    public void setUtilitiesMethod(UtilitiesMethod utilitiesMethod) {
+        this.utilitiesMethod = utilitiesMethod;
     }
 }

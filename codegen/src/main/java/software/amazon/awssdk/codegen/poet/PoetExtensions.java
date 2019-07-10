@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,7 +16,10 @@
 package software.amazon.awssdk.codegen.poet;
 
 import com.squareup.javapoet.ClassName;
+import software.amazon.awssdk.codegen.internal.Utils;
 import software.amazon.awssdk.codegen.model.intermediate.IntermediateModel;
+import software.amazon.awssdk.codegen.model.intermediate.OperationModel;
+import software.amazon.awssdk.codegen.model.intermediate.ShapeModel;
 
 /**
  * Extension and convenience methods to Poet that use the intermediate model.
@@ -54,18 +57,91 @@ public class PoetExtensions {
     }
 
     /**
-     * @param className Simple name of class in waiters package.
-     * @return A Poet {@link ClassName} for the given class in the waiters package.
-     */
-    public ClassName getWaiterClass(String className) {
-        return ClassName.get(model.getMetadata().getFullWaitersPackageName(), className);
-    }
-
-    /**
      * @param className Simple name of class in base service package (i.e. software.amazon.awssdk.services.dynamodb).
      * @return A Poet {@link ClassName} for the given class in the base service package.
      */
     public ClassName getClientClass(String className) {
         return ClassName.get(model.getMetadata().getFullClientPackageName(), className);
+    }
+
+    /**
+     * @param operationName Name of the operation
+     * @return A Poet {@link ClassName} for the response type of a paginated operation in the base service package.
+     *
+     * Example: If operationName is "ListTables", then the response type of the paginated operation
+     * will be "ListTablesIterable" class.
+     */
+    public ClassName getResponseClassForPaginatedSyncOperation(String operationName) {
+        return ClassName.get(model.getMetadata().getFullPaginatorsPackageName(), operationName + "Iterable");
+    }
+
+    /**
+     * @param operationName Name of the operation
+     * @return A Poet {@link ClassName} for the response type of a async paginated operation in the base service package.
+     *
+     * Example: If operationName is "ListTables", then the async response type of the paginated operation
+     * will be "ListTablesPublisher" class.
+     */
+    public ClassName getResponseClassForPaginatedAsyncOperation(String operationName) {
+        return ClassName.get(model.getMetadata().getFullPaginatorsPackageName(), operationName + "Publisher");
+    }
+
+    /**
+     * @return ResponseMetadata className. eg: "S3ResponseMetadata"
+     */
+    public ClassName getResponseMetadataClass() {
+        return ClassName.get(model.getMetadata().getFullModelPackageName(),
+                             model.getSdkResponseBaseClassName() + "Metadata");
+    }
+
+    /**
+     * @return The correctly cased name of the API.
+     */
+    public String getApiName(OperationModel operation) {
+        return Utils.capitalize(operation.getOperationName());
+    }
+
+    /**
+     * @return The {@link ClassName} for the response pojo.
+     */
+    public ClassName responsePojoType(OperationModel operation) {
+        return getModelClass(operation.getOutputShape().getShapeName());
+    }
+
+    // TODO Should we move the event stream specific methods to a new class
+    /**
+     * @return {@link ClassName} for generated event stream response handler interface.
+     */
+    public ClassName eventStreamResponseHandlerType(OperationModel operation) {
+        return getModelClass(getApiName(operation) + "ResponseHandler");
+    }
+
+    /**
+     * @return {@link ClassName} for the builder interface for the response handler interface
+     */
+    public ClassName eventStreamResponseHandlerBuilderType(OperationModel operation) {
+        return eventStreamResponseHandlerType(operation).nestedClass("Builder");
+    }
+
+    /**
+     * @return {@link ClassName} for the event stream visitor interface.
+     */
+    public ClassName eventStreamResponseHandlerVisitorType(OperationModel operation) {
+        return eventStreamResponseHandlerType(operation).nestedClass("Visitor");
+    }
+
+    /**
+     * @return {@link ClassName} for the builder interface for the event stream visitor interface.
+     */
+    public ClassName eventStreamResponseHandlerVisitorBuilderType(OperationModel operation) {
+        return eventStreamResponseHandlerVisitorType(operation).nestedClass("Builder");
+    }
+
+    /**
+     * @param shapeModel shape model for the class in model package
+     * @return {@link ClassName} for the shape represented by the given {@link ShapeModel}.
+     */
+    public ClassName getModelClassFromShape(ShapeModel shapeModel) {
+        return getModelClass(shapeModel.getShapeName());
     }
 }

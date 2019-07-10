@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package software.amazon.awssdk.codegen.customization.processors;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import software.amazon.awssdk.codegen.customization.CodegenCustomizationProcessor;
@@ -80,7 +81,6 @@ final class ShapeModifiersProcessor implements CodegenCustomizationProcessor {
 
     @Override
     public void postprocess(IntermediateModel intermediateModel) {
-
         if (shapeModifiers == null) {
             return;
         }
@@ -93,34 +93,33 @@ final class ShapeModifiersProcessor implements CodegenCustomizationProcessor {
                 continue;
             }
 
-            ShapeModel shapeModel = null;
-            try {
-                shapeModel = Utils.findShapeModelByC2jName(
-                        intermediateModel, key);
-            } catch (IllegalArgumentException e) {
+            List<ShapeModel> shapeModels = Utils.findShapesByC2jName(intermediateModel, key);
+            if (shapeModels.isEmpty()) {
                 throw new IllegalStateException(String.format(
-                        "Cannot find c2j shape [%s] in the intermediate model when processing " +
-                        "customization config shapeModifiers.%s",
-                        key, key), e);
+                    "Cannot find c2j shape [%s] in the intermediate model when processing " +
+                    "customization config shapeModifiers.%s",
+                    key, key));
             }
 
-            if (modifier.isExcludeShape()) {
-                shapeModel.getCustomization().setSkipGeneratingModelClass(true);
-                shapeModel.getCustomization().setSkipGeneratingMarshaller(true);
-                shapeModel.getCustomization().setSkipGeneratingUnmarshaller(true);
-            } else if (modifier.getModify() != null) {
-                // Modifies properties of a member in shape or shape enum.
-                // This customization currently support modifying enum name
-                // and marshall/unmarshall location of a member in the Shape.
-                for (Map<String, ModifyModelShapeModifier> modifies : modifier.getModify()) {
-                    for (Entry<String, ModifyModelShapeModifier> memberEntry : modifies.entrySet()) {
-                        String enumToModify = memberEntry.getKey();
-                        ModifyModelShapeModifier modifyModel = memberEntry.getValue();
-
-                        postprocessModifyMemberProperty(shapeModel, enumToModify, modifyModel);
-                    }
+            shapeModels.forEach(shapeModel -> {
+                if (modifier.getStaxTargetDepthOffset() != null) {
+                    shapeModel.getCustomization().setStaxTargetDepthOffset(modifier.getStaxTargetDepthOffset());
                 }
-            }
+
+                if (modifier.isExcludeShape()) {
+                    shapeModel.getCustomization().setSkipGeneratingModelClass(true);
+                    shapeModel.getCustomization().setSkipGeneratingMarshaller(true);
+                    shapeModel.getCustomization().setSkipGeneratingUnmarshaller(true);
+                } else if (modifier.getModify() != null) {
+                    // Modifies properties of a member in shape or shape enum.
+                    // This customization currently support modifying enum name
+                    // and marshall/unmarshall location of a member in the Shape.
+
+                    modifier.getModify().stream().flatMap(m -> m.entrySet().stream()).forEach(memberEntry ->
+                        postprocessModifyMemberProperty(shapeModel, memberEntry.getKey(), memberEntry.getValue())
+                    );
+                }
+            });
         }
     }
 
@@ -138,6 +137,16 @@ final class ShapeModifiersProcessor implements CodegenCustomizationProcessor {
                                       + "customization config shapeModifiers.%s", memberName, memberName));
             }
             enumModel.setName(modifyModel.getEmitEnumName());
+        }
+
+        if (modifyModel.getEmitEnumValue() != null) {
+            EnumModel enumModel = shapeModel.findEnumModelByValue(memberName);
+            if (enumModel == null) {
+                throw new IllegalStateException(
+                        String.format("Cannot find enum [%s] in the intermediate model when processing "
+                                      + "customization config shapeModifiers.%s", memberName, memberName));
+            }
+            enumModel.setValue(modifyModel.getEmitEnumValue());
         }
 
         if (modifyModel.getMarshallLocationName() != null) {
@@ -200,7 +209,7 @@ final class ShapeModifiersProcessor implements CodegenCustomizationProcessor {
     private void doModifyShapeMembers(ServiceModel serviceModel, Shape shape, String memberToModify,
                                       ModifyModelShapeModifier modifyModel) {
 
-        // Currrenly only supports emitPropertyName which is to rename the member
+        // Currently only supports emitPropertyName which is to rename the member
         if (modifyModel.getEmitPropertyName() != null) {
             Member member = shape.getMembers().remove(memberToModify);
 
@@ -216,7 +225,7 @@ final class ShapeModifiersProcessor implements CodegenCustomizationProcessor {
             // Must create a shape for the primitive type.
             Shape newShapeForType = new Shape();
             newShapeForType.setType(modifyModel.getEmitAsType());
-            final String shapeName = "SDK_" + modifyModel.getEmitAsType();
+            String shapeName = "SDK_" + modifyModel.getEmitAsType();
             serviceModel.getShapes().put(shapeName, newShapeForType);
 
             shape.getMembers().get(memberToModify).setShape(shapeName);

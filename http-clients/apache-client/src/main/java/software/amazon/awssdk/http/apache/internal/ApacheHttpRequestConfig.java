@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package software.amazon.awssdk.http.apache.internal;
 
 import java.net.InetAddress;
 import java.time.Duration;
-import software.amazon.awssdk.annotation.SdkInternalApi;
+import software.amazon.awssdk.annotations.SdkInternalApi;
 import software.amazon.awssdk.http.apache.ProxyConfiguration;
 
 /**
@@ -29,6 +29,7 @@ public final class ApacheHttpRequestConfig {
 
     private final Duration socketTimeout;
     private final Duration connectionTimeout;
+    private final Duration connectionAcquireTimeout;
     private final InetAddress localAddress;
     private final boolean expectContinueEnabled;
     private final ProxyConfiguration proxyConfiguration;
@@ -36,6 +37,7 @@ public final class ApacheHttpRequestConfig {
     private ApacheHttpRequestConfig(Builder builder) {
         this.socketTimeout = builder.socketTimeout;
         this.connectionTimeout = builder.connectionTimeout;
+        this.connectionAcquireTimeout = builder.connectionAcquireTimeout;
         this.localAddress = builder.localAddress;
         this.expectContinueEnabled = builder.expectContinueEnabled;
         this.proxyConfiguration = builder.proxyConfiguration;
@@ -47,6 +49,10 @@ public final class ApacheHttpRequestConfig {
 
     public Duration connectionTimeout() {
         return connectionTimeout;
+    }
+
+    public Duration connectionAcquireTimeout() {
+        return connectionAcquireTimeout;
     }
 
     public InetAddress localAddress() {
@@ -75,8 +81,9 @@ public final class ApacheHttpRequestConfig {
 
         private Duration socketTimeout;
         private Duration connectionTimeout;
+        private Duration connectionAcquireTimeout;
         private InetAddress localAddress;
-        private Boolean expectContinueEnabled;
+        private boolean expectContinueEnabled;
         private ProxyConfiguration proxyConfiguration;
 
         private Builder() {
@@ -92,12 +99,17 @@ public final class ApacheHttpRequestConfig {
             return this;
         }
 
+        public Builder connectionAcquireTimeout(Duration connectionAcquireTimeout) {
+            this.connectionAcquireTimeout = connectionAcquireTimeout;
+            return this;
+        }
+
         public Builder localAddress(InetAddress localAddress) {
             this.localAddress = localAddress;
             return this;
         }
 
-        public Builder expectContinueEnabled(Boolean expectContinueEnabled) {
+        public Builder expectContinueEnabled(boolean expectContinueEnabled) {
             this.expectContinueEnabled = expectContinueEnabled;
             return this;
         }

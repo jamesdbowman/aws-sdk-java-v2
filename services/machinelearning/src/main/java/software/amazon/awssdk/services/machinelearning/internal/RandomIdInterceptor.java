@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,24 +16,25 @@
 package software.amazon.awssdk.services.machinelearning.internal;
 
 import java.util.UUID;
-import software.amazon.awssdk.SdkRequest;
-import software.amazon.awssdk.annotation.ReviewBeforeRelease;
-import software.amazon.awssdk.interceptor.Context;
-import software.amazon.awssdk.interceptor.ExecutionAttributes;
-import software.amazon.awssdk.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.core.SdkRequest;
+import software.amazon.awssdk.core.interceptor.Context;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
 import software.amazon.awssdk.services.machinelearning.model.CreateBatchPredictionRequest;
-import software.amazon.awssdk.services.machinelearning.model.CreateDataSourceFromRDSRequest;
+import software.amazon.awssdk.services.machinelearning.model.CreateDataSourceFromRdsRequest;
 import software.amazon.awssdk.services.machinelearning.model.CreateDataSourceFromRedshiftRequest;
 import software.amazon.awssdk.services.machinelearning.model.CreateDataSourceFromS3Request;
 import software.amazon.awssdk.services.machinelearning.model.CreateEvaluationRequest;
-import software.amazon.awssdk.services.machinelearning.model.CreateMLModelRequest;
+import software.amazon.awssdk.services.machinelearning.model.CreateMlModelRequest;
 
 /**
  * CreateXxx API calls require a unique (for all time!) ID parameter for
  * idempotency. If the user doesn't specify one, fill in a GUID.
  */
-@ReviewBeforeRelease("They should be using the idempotency trait")
-public class RandomIdInterceptor implements ExecutionInterceptor {
+@SdkInternalApi
+//TODO: They should be using the idempotency trait
+public final class RandomIdInterceptor implements ExecutionInterceptor {
 
     @Override
     public SdkRequest modifyRequest(Context.ModifyRequest context, ExecutionAttributes executionAttributes) {
@@ -47,9 +48,9 @@ public class RandomIdInterceptor implements ExecutionInterceptor {
             }
 
             return copy;
-        } else if (request instanceof CreateDataSourceFromRDSRequest) {
-            CreateDataSourceFromRDSRequest copy =
-                    (CreateDataSourceFromRDSRequest) request;
+        } else if (request instanceof CreateDataSourceFromRdsRequest) {
+            CreateDataSourceFromRdsRequest copy =
+                    (CreateDataSourceFromRdsRequest) request;
 
             if (copy.dataSourceId() == null) {
                 copy = copy.toBuilder().dataSourceId(UUID.randomUUID().toString()).build();
@@ -66,8 +67,7 @@ public class RandomIdInterceptor implements ExecutionInterceptor {
 
             return copy;
         } else if (request instanceof CreateDataSourceFromS3Request) {
-            CreateDataSourceFromS3Request copy =
-                    (CreateDataSourceFromS3Request) request;
+            CreateDataSourceFromS3Request copy = (CreateDataSourceFromS3Request) request;
 
             if (copy.dataSourceId() == null) {
                 copy = copy.toBuilder().dataSourceId(UUID.randomUUID().toString()).build();
@@ -83,8 +83,8 @@ public class RandomIdInterceptor implements ExecutionInterceptor {
             }
 
             return copy;
-        } else if (request instanceof CreateMLModelRequest) {
-            CreateMLModelRequest copy = (CreateMLModelRequest) request;
+        } else if (request instanceof CreateMlModelRequest) {
+            CreateMlModelRequest copy = (CreateMlModelRequest) request;
 
             if (copy.mlModelId() == null) {
                 copy = copy.toBuilder().mlModelId(UUID.randomUUID().toString()).build();

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,25 +15,18 @@
 
 package software.amazon.awssdk.http;
 
-import software.amazon.awssdk.annotation.SdkInternalApi;
-import software.amazon.awssdk.metrics.spi.AwsRequestMetrics;
+import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
 
 /**
  * Container for extra dependencies needed during execution of a request.
  */
+@SdkProtectedApi
 public class SdkRequestContext {
-
-    private final AwsRequestMetrics metrics;
+    private final boolean isFullDuplex;
 
     private SdkRequestContext(Builder builder) {
-        this.metrics = builder.metrics;
-    }
-
-    /**
-     * @return Object used to record request level metrics.
-     */
-    public AwsRequestMetrics metrics() {
-        return metrics;
+        this.isFullDuplex = builder.isFullDuplex;
     }
 
     /**
@@ -45,18 +38,33 @@ public class SdkRequestContext {
     }
 
     /**
+     * Option to indicate if the request is for a full duplex operation ie., request and response are sent/received at the same
+     * time.
+     * This can be used to set http configuration like ReadTimeouts as soon as request has begin sending data instead of
+     * waiting for the entire request to be sent.
+     *
+     * @return True if the operation this request belongs to is full duplex. Otherwise false.
+     */
+    public boolean fullDuplex() {
+        return isFullDuplex;
+    }
+
+    /**
      * Builder for a {@link SdkRequestContext}.
      */
     @SdkInternalApi
     public static final class Builder {
-
-        private AwsRequestMetrics metrics;
+        private boolean isFullDuplex;
 
         private Builder() {
         }
 
-        public Builder metrics(AwsRequestMetrics metrics) {
-            this.metrics = metrics;
+        public boolean fullDuplex() {
+            return isFullDuplex;
+        }
+
+        public Builder fullDuplex(boolean fullDuplex) {
+            isFullDuplex = fullDuplex;
             return this;
         }
 

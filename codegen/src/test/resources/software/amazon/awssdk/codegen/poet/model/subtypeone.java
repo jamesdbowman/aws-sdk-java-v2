@@ -1,17 +1,35 @@
 package software.amazon.awssdk.services.jsonprotocoltests.model;
 
-import javax.annotation.Generated;
-import software.amazon.awssdk.annotation.SdkInternalApi;
-import software.amazon.awssdk.protocol.ProtocolMarshaller;
-import software.amazon.awssdk.protocol.StructuredPojo;
-import software.amazon.awssdk.services.jsonprotocoltests.transform.SubTypeOneMarshaller;
+import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import software.amazon.awssdk.annotations.Generated;
+import software.amazon.awssdk.core.SdkField;
+import software.amazon.awssdk.core.SdkPojo;
+import software.amazon.awssdk.core.protocol.MarshallLocation;
+import software.amazon.awssdk.core.protocol.MarshallingType;
+import software.amazon.awssdk.core.traits.LocationTrait;
+import software.amazon.awssdk.utils.ToString;
 import software.amazon.awssdk.utils.builder.CopyableBuilder;
 import software.amazon.awssdk.utils.builder.ToCopyableBuilder;
 
 /**
  */
 @Generated("software.amazon.awssdk:codegen")
-public class SubTypeOne implements StructuredPojo, ToCopyableBuilder<SubTypeOne.Builder, SubTypeOne> {
+public final class SubTypeOne implements SdkPojo, Serializable, ToCopyableBuilder<SubTypeOne.Builder, SubTypeOne> {
+    private static final SdkField<String> SUB_TYPE_ONE_MEMBER_FIELD = SdkField.<String> builder(MarshallingType.STRING)
+        .getter(getter(SubTypeOne::subTypeOneMember)).setter(setter(Builder::subTypeOneMember))
+        .traits(LocationTrait.builder().location(MarshallLocation.PAYLOAD).locationName("SubTypeOneMember").build()).build();
+
+    private static final List<SdkField<?>> SDK_FIELDS = Collections.unmodifiableList(Arrays.asList(SUB_TYPE_ONE_MEMBER_FIELD));
+
+    private static final long serialVersionUID = 1L;
+
     private final String subTypeOneMember;
 
     private SubTypeOne(BuilderImpl builder) {
@@ -43,7 +61,7 @@ public class SubTypeOne implements StructuredPojo, ToCopyableBuilder<SubTypeOne.
     @Override
     public int hashCode() {
         int hashCode = 1;
-        hashCode = 31 * hashCode + ((subTypeOneMember() == null) ? 0 : subTypeOneMember().hashCode());
+        hashCode = 31 * hashCode + Objects.hashCode(subTypeOneMember());
         return hashCode;
     }
 
@@ -59,33 +77,41 @@ public class SubTypeOne implements StructuredPojo, ToCopyableBuilder<SubTypeOne.
             return false;
         }
         SubTypeOne other = (SubTypeOne) obj;
-        if (other.subTypeOneMember() == null ^ this.subTypeOneMember() == null) {
-            return false;
-        }
-        if (other.subTypeOneMember() != null && !other.subTypeOneMember().equals(this.subTypeOneMember())) {
-            return false;
-        }
-        return true;
+        return Objects.equals(subTypeOneMember(), other.subTypeOneMember());
     }
 
+    /**
+     * Returns a string representation of this object. This is useful for testing and debugging. Sensitive data will be
+     * redacted from this string using a placeholder value.
+     */
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{");
-        if (subTypeOneMember() != null) {
-            sb.append("SubTypeOneMember: ").append(subTypeOneMember()).append(",");
+        return ToString.builder("SubTypeOne").add("SubTypeOneMember", subTypeOneMember()).build();
+    }
+
+    public <T> Optional<T> getValueForField(String fieldName, Class<T> clazz) {
+        switch (fieldName) {
+            case "SubTypeOneMember":
+                return Optional.ofNullable(clazz.cast(subTypeOneMember()));
+            default:
+                return Optional.empty();
         }
-        sb.append("}");
-        return sb.toString();
     }
 
-    @SdkInternalApi
     @Override
-    public void marshall(ProtocolMarshaller protocolMarshaller) {
-        SubTypeOneMarshaller.getInstance().marshall(this, protocolMarshaller);
+    public List<SdkField<?>> sdkFields() {
+        return SDK_FIELDS;
     }
 
-    public interface Builder extends CopyableBuilder<Builder, SubTypeOne> {
+    private static <T> Function<Object, T> getter(Function<SubTypeOne, T> g) {
+        return obj -> g.apply((SubTypeOne) obj);
+    }
+
+    private static <T> BiConsumer<Object, T> setter(BiConsumer<Builder, T> s) {
+        return (obj, val) -> s.accept((Builder) obj, val);
+    }
+
+    public interface Builder extends SdkPojo, CopyableBuilder<Builder, SubTypeOne> {
         /**
          * Sets the value of the SubTypeOneMember property for this object.
          *
@@ -96,14 +122,14 @@ public class SubTypeOne implements StructuredPojo, ToCopyableBuilder<SubTypeOne.
         Builder subTypeOneMember(String subTypeOneMember);
     }
 
-    private static final class BuilderImpl implements Builder {
+    static final class BuilderImpl implements Builder {
         private String subTypeOneMember;
 
         private BuilderImpl() {
         }
 
         private BuilderImpl(SubTypeOne model) {
-            setSubTypeOneMember(model.subTypeOneMember);
+            subTypeOneMember(model.subTypeOneMember);
         }
 
         public final String getSubTypeOneMember() {
@@ -124,5 +150,11 @@ public class SubTypeOne implements StructuredPojo, ToCopyableBuilder<SubTypeOne.
         public SubTypeOne build() {
             return new SubTypeOne(this);
         }
+
+        @Override
+        public List<SdkField<?>> sdkFields() {
+            return SDK_FIELDS;
+        }
     }
 }
+

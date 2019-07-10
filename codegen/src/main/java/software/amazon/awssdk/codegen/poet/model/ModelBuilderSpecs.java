@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -21,13 +21,21 @@ import com.squareup.javapoet.MethodSpec;
 import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
+import com.squareup.javapoet.WildcardTypeName;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import javax.lang.model.element.Modifier;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.codegen.model.intermediate.IntermediateModel;
 import software.amazon.awssdk.codegen.model.intermediate.ShapeModel;
 import software.amazon.awssdk.codegen.model.intermediate.ShapeType;
 import software.amazon.awssdk.codegen.poet.PoetExtensions;
+import software.amazon.awssdk.core.SdkField;
+import software.amazon.awssdk.core.SdkPojo;
+import software.amazon.awssdk.core.util.DefaultSdkAutoConstructList;
+import software.amazon.awssdk.core.util.DefaultSdkAutoConstructMap;
 import software.amazon.awssdk.utils.builder.CopyableBuilder;
 
 /**
@@ -36,20 +44,18 @@ import software.amazon.awssdk.utils.builder.CopyableBuilder;
 class ModelBuilderSpecs {
     private final IntermediateModel intermediateModel;
     private final ShapeModel shapeModel;
-    private final ShapeModelSpec shapeModelSpec;
     private final TypeProvider typeProvider;
     private final PoetExtensions poetExtensions;
     private final AccessorsFactory accessorsFactory;
 
-    ModelBuilderSpecs(IntermediateModel intermediateModel, ShapeModel shapeModel,
-                             ShapeModelSpec shapeModelSpec,
-                             TypeProvider typeProvider) {
+    ModelBuilderSpecs(IntermediateModel intermediateModel,
+                      ShapeModel shapeModel,
+                      TypeProvider typeProvider) {
         this.intermediateModel = intermediateModel;
         this.shapeModel = shapeModel;
-        this.shapeModelSpec = shapeModelSpec;
         this.typeProvider = typeProvider;
         this.poetExtensions = new PoetExtensions(this.intermediateModel);
-        this.accessorsFactory = new AccessorsFactory(this.shapeModel, this.intermediateModel, this.typeProvider);
+        this.accessorsFactory = new AccessorsFactory(this.shapeModel, this.intermediateModel, this.typeProvider, poetExtensions);
     }
 
     public ClassName builderInterfaceName() {
@@ -62,55 +68,117 @@ class ModelBuilderSpecs {
 
     public TypeSpec builderInterface() {
         TypeSpec.Builder builder = TypeSpec.interfaceBuilder(builderInterfaceName())
-                .addSuperinterface(copyableBuilderSuperInterface())
+                .addSuperinterfaces(builderSuperInterfaces())
                 .addModifiers(Modifier.PUBLIC);
 
         shapeModel.getNonStreamingMembers()
-                  .forEach(m -> builder.addMethods(accessorsFactory.fluentSetterDeclarations(m, builderInterfaceName())));
+                  .forEach(m -> {
+                      builder.addMethods(accessorsFactory.fluentSetterDeclarations(m, builderInterfaceName()));
+                      builder.addMethods(accessorsFactory.convenienceSetterDeclarations(m, builderInterfaceName()));
+                  });
 
-        if (exception()) {
-            builder.addMethod(MethodSpec.methodBuilder("message")
+        if (isException()) {
+            builder.addSuperinterface(parentExceptionBuilder().nestedClass("Builder"));
+            builder.addMethods(ExceptionProperties.builderInterfaceMethods(builderInterfaceName()));
+        }
+
+        if (isRequest()) {
+            builder.addMethod(MethodSpec.methodBuilder("overrideConfiguration")
                     .returns(builderInterfaceName())
-                    .addParameter(String.class, "message")
-                    .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT).build());
+                    .addAnnotation(Override.class)
+                    .addParameter(AwsRequestOverrideConfiguration.class, "overrideConfiguration")
+                    .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                    .build());
+
+            builder.addMethod(MethodSpec.methodBuilder("overrideConfiguration")
+                    .addAnnotation(Override.class)
+                    .returns(builderInterfaceName())
+                    .addParameter(ParameterizedTypeName.get(Consumer.class, AwsRequestOverrideConfiguration.Builder.class),
+                            "builderConsumer")
+                    .addModifiers(Modifier.PUBLIC, Modifier.ABSTRACT)
+                    .build());
         }
 
         return builder.build();
     }
 
+    private ClassName parentExceptionBuilder() {
+        String customExceptionBase = intermediateModel.getCustomizationConfig()
+                .getSdkModeledExceptionBaseClassName();
+        if (customExceptionBase != null) {
+            return poetExtensions.getModelClass(customExceptionBase);
+        }
+        return poetExtensions.getModelClass(intermediateModel.getSdkModeledExceptionBaseClassName());
+    }
 
     public TypeSpec beanStyleBuilder() {
         TypeSpec.Builder builderClassBuilder = TypeSpec.classBuilder(builderImplName())
                 .addSuperinterface(builderInterfaceName())
                 // TODO: Uncomment this once property shadowing is fixed
                 //.addSuperinterface(copyableBuilderSuperInterface())
-                .addModifiers(Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL);
+                .superclass(builderImplSuperClass())
+                .addModifiers(Modifier.STATIC, Modifier.FINAL);
+
+        if (isException()) {
+            builderClassBuilder.superclass(parentExceptionBuilder().nestedClass("BuilderImpl"));
+        }
 
         builderClassBuilder.addFields(fields());
         builderClassBuilder.addMethod(noargConstructor());
         builderClassBuilder.addMethod(modelCopyConstructor());
         builderClassBuilder.addMethods(accessors());
         builderClassBuilder.addMethod(buildMethod());
+        builderClassBuilder.addMethod(sdkFieldsMethod());
 
         return builderClassBuilder.build();
     }
 
-    private List<FieldSpec> fields() {
-        List<FieldSpec> fields = shapeModelSpec.fields(Modifier.PRIVATE);
+    private MethodSpec sdkFieldsMethod() {
+        ParameterizedTypeName sdkFieldType = ParameterizedTypeName.get(ClassName.get(SdkField.class),
+                                                                       WildcardTypeName.subtypeOf(ClassName.get(Object.class)));
+        return MethodSpec.methodBuilder("sdkFields")
+                         .addModifiers(Modifier.PUBLIC)
+                         .addAnnotation(Override.class)
+                         .returns(ParameterizedTypeName.get(ClassName.get(List.class), sdkFieldType))
+                         .addCode("return SDK_FIELDS;")
+                         .build();
+    }
 
-        // Inject a message member for the exception message
-        if (exception()) {
-            fields = new ArrayList<>(fields);
-            fields.add(FieldSpec.builder(String.class, "message", Modifier.PRIVATE).build());
+    private TypeName builderImplSuperClass() {
+        if (isRequest()) {
+            return new AwsServiceBaseRequestSpec(intermediateModel).className().nestedClass("BuilderImpl");
         }
+
+        if (isResponse()) {
+            return new AwsServiceBaseResponseSpec(intermediateModel).className().nestedClass("BuilderImpl");
+        }
+
+        return ClassName.OBJECT;
+    }
+
+    private List<FieldSpec> fields() {
+        List<FieldSpec> fields = shapeModel.getNonStreamingMembers().stream()
+                .map(m -> {
+                    FieldSpec fieldSpec = typeProvider.asField(m, Modifier.PRIVATE);
+                    if (m.isList() && typeProvider.useAutoConstructLists()) {
+                        fieldSpec = fieldSpec.toBuilder()
+                                .initializer("$T.getInstance()", DefaultSdkAutoConstructList.class)
+                                .build();
+                    } else if (m.isMap() && typeProvider.useAutoConstructMaps()) {
+                        fieldSpec = fieldSpec.toBuilder()
+                                .initializer("$T.getInstance()", DefaultSdkAutoConstructMap.class)
+                                .build();
+                    }
+                    return fieldSpec;
+                }).collect(Collectors.toList());
 
         return fields;
     }
 
     private MethodSpec noargConstructor() {
-        return MethodSpec.constructorBuilder()
-                .addModifiers(Modifier.PRIVATE)
-                .build();
+        MethodSpec.Builder ctorBuilder = MethodSpec.constructorBuilder()
+                .addModifiers(Modifier.PRIVATE);
+        return ctorBuilder.build();
     }
 
     private MethodSpec modelCopyConstructor() {
@@ -118,14 +186,14 @@ class ModelBuilderSpecs {
                 .addModifiers(Modifier.PRIVATE)
                 .addParameter(classToBuild(), "model");
 
+        if (isRequest() || isResponse() || isException()) {
+            copyBuilderCtor.addCode("super(model);");
+        }
+
         shapeModel.getNonStreamingMembers().forEach(m -> {
             String name = m.getVariable().getVariableName();
-            copyBuilderCtor.addStatement("$N(model.$N)", m.getSetterMethodName(), name);
+            copyBuilderCtor.addStatement("$N(model.$N)", m.getFluentSetterMethodName(), name);
         });
-
-        if (exception()) {
-            copyBuilderCtor.addStatement("this.message = model.getMessage()");
-        }
 
         return copyBuilderCtor.build();
     }
@@ -134,14 +202,35 @@ class ModelBuilderSpecs {
         List<MethodSpec> accessors = new ArrayList<>();
         shapeModel.getNonStreamingMembers().stream()
                   .forEach(m -> {
-                      accessors.add(accessorsFactory.beanStyleGetters(m));
+                      accessors.add(accessorsFactory.beanStyleGetter(m));
                       accessors.addAll(accessorsFactory.fluentSetters(m, builderInterfaceName()));
-                      accessors.addAll(accessorsFactory.beanStyleSetters(m));
+                      accessors.add(accessorsFactory.beanStyleSetter(m));
+                      accessors.addAll(accessorsFactory.convenienceSetters(m, builderInterfaceName()));
                   });
 
-        if (exception()) {
-            accessors.addAll(exceptionMessageGetters());
-            accessors.addAll(exceptionMessageSetters());
+        if (isException()) {
+            accessors.addAll(ExceptionProperties.builderImplMethods(builderImplName()));
+        }
+
+        if (isRequest()) {
+            accessors.add(MethodSpec.methodBuilder("overrideConfiguration")
+                    .addAnnotation(Override.class)
+                    .returns(builderInterfaceName())
+                    .addParameter(AwsRequestOverrideConfiguration.class, "overrideConfiguration")
+                    .addModifiers(Modifier.PUBLIC)
+                    .addStatement("super.overrideConfiguration(overrideConfiguration)")
+                    .addStatement("return this")
+                    .build());
+
+            accessors.add(MethodSpec.methodBuilder("overrideConfiguration")
+                    .addAnnotation(Override.class)
+                    .returns(builderInterfaceName())
+                    .addParameter(ParameterizedTypeName.get(Consumer.class, AwsRequestOverrideConfiguration.Builder.class),
+                            "builderConsumer")
+                    .addModifiers(Modifier.PUBLIC)
+                    .addStatement("super.overrideConfiguration(builderConsumer)")
+                    .addStatement("return this")
+                    .build());
         }
 
         return accessors;
@@ -160,54 +249,29 @@ class ModelBuilderSpecs {
         return poetExtensions.getModelClass(shapeModel.getShapeName());
     }
 
-    private boolean exception() {
+    private boolean isException() {
         return shapeModel.getShapeType() == ShapeType.Exception;
     }
 
-    private TypeName copyableBuilderSuperInterface() {
-        return ParameterizedTypeName.get(ClassName.get(CopyableBuilder.class),
-                classToBuild().nestedClass("Builder"),
-                classToBuild());
+    private boolean isRequest() {
+        return shapeModel.getShapeType() == ShapeType.Request;
     }
 
-    private List<MethodSpec> exceptionMessageGetters() {
-        List<MethodSpec> getters = new ArrayList<>();
-
-        // bean style
-        getters.add(MethodSpec.methodBuilder("getMessage")
-                .addModifiers(Modifier.PUBLIC)
-                .returns(String.class)
-                .addStatement("return message")
-                .build());
-
-        getters.add(MethodSpec.methodBuilder("message")
-                .addModifiers(Modifier.PUBLIC)
-                .returns(String.class)
-                .addStatement("return message")
-                .build());
-
-        return getters;
+    private boolean isResponse() {
+        return shapeModel.getShapeType() == ShapeType.Response;
     }
 
-    private List<MethodSpec> exceptionMessageSetters() {
-        List<MethodSpec> setters = new ArrayList<>();
-
-        // bean style
-        setters.add(MethodSpec.methodBuilder("setMessage")
-                .addModifiers(Modifier.PUBLIC)
-                .addParameter(String.class, "message")
-                .addStatement("this.message = message")
-                .build());
-
-        setters.add(MethodSpec.methodBuilder("message")
-                .addModifiers(Modifier.PUBLIC)
-                .returns(builderInterfaceName())
-                .addAnnotation(Override.class)
-                .addParameter(String.class, "message")
-                .addStatement("this.message = message")
-                .addStatement("return this")
-                .build());
-
-        return setters;
+    private List<TypeName> builderSuperInterfaces() {
+        List<TypeName> superInterfaces = new ArrayList<>();
+        if (isRequest()) {
+            superInterfaces.add(new AwsServiceBaseRequestSpec(intermediateModel).className().nestedClass("Builder"));
+        }
+        if (isResponse()) {
+            superInterfaces.add(new AwsServiceBaseResponseSpec(intermediateModel).className().nestedClass("Builder"));
+        }
+        superInterfaces.add(ClassName.get(SdkPojo.class));
+        superInterfaces.add(ParameterizedTypeName.get(ClassName.get(CopyableBuilder.class),
+                classToBuild().nestedClass("Builder"), classToBuild()));
+        return superInterfaces;
     }
 }

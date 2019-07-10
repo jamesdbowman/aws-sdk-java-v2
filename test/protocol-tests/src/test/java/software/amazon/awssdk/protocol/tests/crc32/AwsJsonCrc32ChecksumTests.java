@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -27,10 +27,9 @@ import java.net.URI;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
-import software.amazon.awssdk.AmazonClientException;
-import software.amazon.awssdk.auth.AwsCredentials;
-import software.amazon.awssdk.auth.StaticCredentialsProvider;
-import software.amazon.awssdk.config.ClientOverrideConfiguration;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.protocoljsonrpc.ProtocolJsonRpcClient;
 import software.amazon.awssdk.services.protocoljsonrpc.model.AllTypesRequest;
@@ -54,7 +53,7 @@ public class AwsJsonCrc32ChecksumTests {
     private static final String JSON_BODY_EXTRA_DATA_GZIP_Crc32_CHECKSUM = "1561543715";
 
     private static final StaticCredentialsProvider FAKE_CREDENTIALS_PROVIDER =
-            new StaticCredentialsProvider(new AwsCredentials("foo", "bar"));
+            StaticCredentialsProvider.create(AwsBasicCredentials.create("foo", "bar"));
 
     @Test
     public void clientCalculatesCrc32FromCompressedData_WhenCrc32IsValid() {
@@ -68,7 +67,6 @@ public class AwsJsonCrc32ChecksumTests {
                 .credentialsProvider(FAKE_CREDENTIALS_PROVIDER)
                 .region(Region.US_EAST_1)
                 .endpointOverride(URI.create("http://localhost:" + mockServer.port()))
-                .overrideConfiguration(ClientOverrideConfiguration.builder().gzipEnabled(true).build())
                 .build();
 
         SimpleResponse result = jsonRpc.simple(SimpleRequest.builder().build());
@@ -93,14 +91,13 @@ public class AwsJsonCrc32ChecksumTests {
                 .credentialsProvider(FAKE_CREDENTIALS_PROVIDER)
                 .region(Region.US_EAST_1)
                 .endpointOverride(URI.create("http://localhost:" + mockServer.port()))
-                .overrideConfiguration(ClientOverrideConfiguration.builder().gzipEnabled(true).build())
                 .build();
 
         SimpleResponse result = jsonRpc.simple(SimpleRequest.builder().build());
         Assert.assertEquals("foo", result.stringMember());
     }
 
-    @Test(expected = AmazonClientException.class)
+    @Test(expected = SdkClientException.class)
     public void clientCalculatesCrc32FromCompressedData_WhenCrc32IsInvalid_ThrowsException() {
         stubFor(post(urlEqualTo("/")).willReturn(aResponse()
                                                          .withStatus(200)
@@ -112,7 +109,6 @@ public class AwsJsonCrc32ChecksumTests {
                 .credentialsProvider(FAKE_CREDENTIALS_PROVIDER)
                 .region(Region.US_EAST_1)
                 .endpointOverride(URI.create("http://localhost:" + mockServer.port()))
-                .overrideConfiguration(ClientOverrideConfiguration.builder().gzipEnabled(true).build())
                 .build();
 
         jsonRpc.simple(SimpleRequest.builder().build());
@@ -130,7 +126,6 @@ public class AwsJsonCrc32ChecksumTests {
                 .credentialsProvider(FAKE_CREDENTIALS_PROVIDER)
                 .region(Region.US_EAST_1)
                 .endpointOverride(URI.create("http://localhost:" + mockServer.port()))
-                .overrideConfiguration(ClientOverrideConfiguration.builder().gzipEnabled(true).build())
                 .build();
 
         AllTypesResponse result =
@@ -138,7 +133,7 @@ public class AwsJsonCrc32ChecksumTests {
         Assert.assertEquals("foo", result.stringMember());
     }
 
-    @Test(expected = AmazonClientException.class)
+    @Test(expected = SdkClientException.class)
     public void clientCalculatesCrc32FromDecompressedData_WhenCrc32IsInvalid_ThrowsException() {
         stubFor(post(urlEqualTo("/")).willReturn(aResponse()
                                                          .withStatus(200)
@@ -150,7 +145,6 @@ public class AwsJsonCrc32ChecksumTests {
                 .credentialsProvider(FAKE_CREDENTIALS_PROVIDER)
                 .region(Region.US_EAST_1)
                 .endpointOverride(URI.create("http://localhost:" + mockServer.port()))
-                .overrideConfiguration(ClientOverrideConfiguration.builder().gzipEnabled(true).build())
                 .build();
 
         jsonRpc.allTypes(AllTypesRequest.builder().build());
@@ -167,7 +161,6 @@ public class AwsJsonCrc32ChecksumTests {
                 .credentialsProvider(FAKE_CREDENTIALS_PROVIDER)
                 .region(Region.US_EAST_1)
                 .endpointOverride(URI.create("http://localhost:" + mockServer.port()))
-                .overrideConfiguration(ClientOverrideConfiguration.builder().gzipEnabled(true).build())
                 .build();
 
         AllTypesResponse result =
@@ -175,7 +168,7 @@ public class AwsJsonCrc32ChecksumTests {
         Assert.assertEquals("foo", result.stringMember());
     }
 
-    @Test(expected = AmazonClientException.class)
+    @Test(expected = SdkClientException.class)
     public void useGzipFalse_WhenCrc32IsInvalid_ThrowException() {
         stubFor(post(urlEqualTo("/")).willReturn(aResponse()
                                                          .withStatus(200)
@@ -186,7 +179,6 @@ public class AwsJsonCrc32ChecksumTests {
                 .credentialsProvider(FAKE_CREDENTIALS_PROVIDER)
                 .region(Region.US_EAST_1)
                 .endpointOverride(URI.create("http://localhost:" + mockServer.port()))
-                .overrideConfiguration(ClientOverrideConfiguration.builder().gzipEnabled(true).build())
                 .build();
 
         jsonRpc.allTypes(AllTypesRequest.builder().build());

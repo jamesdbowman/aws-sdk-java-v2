@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -14,6 +14,9 @@
  */
 
 package software.amazon.awssdk.http.nio.netty.internal;
+
+import static software.amazon.awssdk.http.nio.netty.internal.NettyConfiguration.EVENTLOOP_SHUTDOWN_QUIET_PERIOD_SECONDS;
+import static software.amazon.awssdk.http.nio.netty.internal.NettyConfiguration.EVENTLOOP_SHUTDOWN_TIMEOUT_SECONDS;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -30,15 +33,17 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import software.amazon.awssdk.annotations.SdkInternalApi;
 
 /**
  * {@link EventLoopGroup} that just delegates to another {@link EventLoopGroup}. Useful for extending or building decorators.
  */
+@SdkInternalApi
 public abstract class DelegatingEventLoopGroup implements EventLoopGroup {
 
     private final EventLoopGroup delegate;
 
-    public DelegatingEventLoopGroup(EventLoopGroup delegate) {
+    protected DelegatingEventLoopGroup(EventLoopGroup delegate) {
         this.delegate = delegate;
     }
 
@@ -56,7 +61,7 @@ public abstract class DelegatingEventLoopGroup implements EventLoopGroup {
 
     @Override
     public Future<?> shutdownGracefully() {
-        return delegate.shutdownGracefully();
+        return shutdownGracefully(EVENTLOOP_SHUTDOWN_QUIET_PERIOD_SECONDS, EVENTLOOP_SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     @Override

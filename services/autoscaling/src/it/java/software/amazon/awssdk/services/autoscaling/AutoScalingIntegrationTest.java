@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
 
 package software.amazon.awssdk.services.autoscaling;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static software.amazon.awssdk.testutils.SdkAsserts.assertNotEmpty;
 
 import java.time.Instant;
 import java.util.Arrays;
@@ -32,9 +33,8 @@ import java.util.Map;
 import org.apache.commons.codec.binary.Base64;
 import org.junit.After;
 import org.junit.Test;
-import software.amazon.awssdk.AmazonServiceException.ErrorType;
-import software.amazon.awssdk.SdkGlobalTime;
-import software.amazon.awssdk.auth.StaticCredentialsProvider;
+import software.amazon.awssdk.core.SdkGlobalTime;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.autoscaling.model.AlreadyExistsException;
 import software.amazon.awssdk.services.autoscaling.model.AutoScalingGroup;
 import software.amazon.awssdk.services.autoscaling.model.BlockDeviceMapping;
@@ -181,12 +181,11 @@ public class AutoScalingIntegrationTest extends IntegrationTestBase {
             createLaunchConfiguration(launchConfigurationName);
             createLaunchConfiguration(launchConfigurationName);
         } catch (AlreadyExistsException aee) {
-            assertEquals(400, aee.getStatusCode());
-            assertEquals("AlreadyExists", aee.getErrorCode());
-            assertEquals(ErrorType.Client, aee.getErrorType());
+            assertEquals(400, aee.statusCode());
+            assertEquals("AlreadyExists", aee.awsErrorDetails().errorCode());
             assertNotEmpty(aee.getMessage());
-            assertNotEmpty(aee.getRequestId());
-            assertNotEmpty(aee.getServiceName());
+            assertNotEmpty(aee.requestId());
+            assertNotEmpty(aee.awsErrorDetails().serviceName());
         }
     }
 
@@ -247,8 +246,8 @@ public class AutoScalingIntegrationTest extends IntegrationTestBase {
         assertEquals("default", launchConfiguration.securityGroups().get(0));
         assertEquals(encodedUserData, launchConfiguration.userData());
         assertEquals(false, launchConfiguration.associatePublicIpAddress());
-        assertThat(result.launchConfigurations().get(0).blockDeviceMappings(),
-                   containsInAnyOrder(blockDeviceMapping1, blockDeviceMapping2));
+        assertThat(result.launchConfigurations().get(0).blockDeviceMappings()).contains(
+                   blockDeviceMapping1, blockDeviceMapping2);
 
         // Delete it
         autoscaling.deleteLaunchConfiguration(DeleteLaunchConfigurationRequest.builder()
@@ -503,7 +502,7 @@ public class AutoScalingIntegrationTest extends IntegrationTestBase {
 
 
     /**
-     * Tests that we can invoke the notificaiton related operations correctly.
+     * Tests that we can invoke the notification related operations correctly.
      */
 
     @Test
@@ -600,8 +599,8 @@ public class AutoScalingIntegrationTest extends IntegrationTestBase {
     public void testDescribeTerminationPolicyTypes() {
         DescribeTerminationPolicyTypesResponse describeAdjustmentTypesResult = autoscaling
                 .describeTerminationPolicyTypes(DescribeTerminationPolicyTypesRequest.builder().build());
-        assertEquals(TERMINATION_POLICIES.toArray(), describeAdjustmentTypesResult.terminationPolicyTypes()
-                                                                                  .toArray());
+
+        assertThat(describeAdjustmentTypesResult.terminationPolicyTypes()).containsAll(TERMINATION_POLICIES);
     }
 
     private Collection<Tag> convertTagList(Map<String, String> tags, String groupName) {
@@ -624,7 +623,10 @@ public class AutoScalingIntegrationTest extends IntegrationTestBase {
     @Test
     public void testClockSkewAs() {
         SdkGlobalTime.setGlobalTimeOffset(3600);
-        AutoScalingClient clockSkewClient = AutoScalingClient.builder().credentialsProvider(new StaticCredentialsProvider(credentials)).build();
+        AutoScalingClient clockSkewClient = AutoScalingClient.builder()
+                                                             .region(Region.US_EAST_1)
+                                                             .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
+                                                             .build();
         clockSkewClient.describePolicies(DescribePoliciesRequest.builder().build());
         assertTrue(SdkGlobalTime.getGlobalTimeOffset() < 60);
     }

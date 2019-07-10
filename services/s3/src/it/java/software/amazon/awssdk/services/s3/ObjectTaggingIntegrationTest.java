@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 package software.amazon.awssdk.services.s3;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static software.amazon.awssdk.testutils.service.S3BucketUtils.temporaryBucketName;
 
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.model.BucketVersioningStatus;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;
-import software.amazon.awssdk.services.s3.model.CreateBucketConfiguration;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingResponse;
@@ -34,29 +34,24 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.model.VersioningConfiguration;
-import software.amazon.awssdk.sync.RequestBody;
 
 /**
  * Integration tests for object tagging support.
  */
 public class ObjectTaggingIntegrationTest extends S3IntegrationTestBase {
     private static final String KEY_PREFIX = "tagged-object-";
-    private static final String BUCKET = "java-object-tagging-bucket-" + System.currentTimeMillis();
+    private static final String BUCKET = temporaryBucketName("java-object-tagging-bucket-");
 
     @BeforeClass
     public static void setUp() throws Exception {
         S3IntegrationTestBase.setUp();
-        s3.createBucket(CreateBucketRequest.builder().bucket(BUCKET)
-                                           .createBucketConfiguration(CreateBucketConfiguration.builder()
-                                                                                               .locationConstraint("us-west-2")
-                                                                                               .build())
-                                           .build());
+        createBucket(BUCKET);
 
         s3.putBucketVersioning(PutBucketVersioningRequest.builder()
                                                          .bucket(BUCKET)
                                                          .versioningConfiguration(
                                                                  VersioningConfiguration.builder()
-                                                                                        .status(BucketVersioningStatus.Enabled)
+                                                                                        .status(BucketVersioningStatus.ENABLED)
                                                                                         .build())
                                                          .build());
     }
@@ -71,11 +66,9 @@ public class ObjectTaggingIntegrationTest extends S3IntegrationTestBase {
         Tagging tags = Tagging.builder()
                               .tagSet(Tag.builder()
                                          .key("foo")
-                                         .value("1").build())
-                              .tagSet(Tag.builder()
+                                         .value("1").build(), Tag.builder()
                                          .key("bar")
-                                         .value("2").build())
-                              .tagSet(Tag.builder()
+                                         .value("2").build(), Tag.builder()
                                          .key("baz")
                                          .value("3").build())
                               .build();
@@ -84,7 +77,7 @@ public class ObjectTaggingIntegrationTest extends S3IntegrationTestBase {
         s3.putObject(PutObjectRequest.builder()
                                      .bucket(BUCKET)
                                      .key(key)
-                                     .tagging(S3TaggingUtil.toQueryString(tags))
+                                     .tagging(tags)
                                      .build(),
                      RequestBody.empty());
 
@@ -113,7 +106,7 @@ public class ObjectTaggingIntegrationTest extends S3IntegrationTestBase {
         s3.putObject(PutObjectRequest.builder()
                                      .bucket(BUCKET)
                                      .key(key)
-                                     .tagging(S3TaggingUtil.toQueryString(tags))
+                                     .tagging(tags)
                                      .build(), RequestBody.empty());
 
         List<Tag> getTaggingResult = s3.getObjectTagging(GetObjectTaggingRequest.builder()
@@ -139,7 +132,7 @@ public class ObjectTaggingIntegrationTest extends S3IntegrationTestBase {
         s3.putObject(PutObjectRequest.builder()
                                      .bucket(BUCKET)
                                      .key(key)
-                                     .tagging(S3TaggingUtil.toQueryString(tags))
+                                     .tagging(tags)
                                      .build(), RequestBody.empty());
 
         List<Tag> getTaggingResult = s3.getObjectTagging(GetObjectTaggingRequest.builder()
@@ -165,7 +158,7 @@ public class ObjectTaggingIntegrationTest extends S3IntegrationTestBase {
         s3.putObject(PutObjectRequest.builder()
                                      .bucket(BUCKET)
                                      .key(key)
-                                     .tagging(S3TaggingUtil.toQueryString(tags))
+                                     .tagging(tags)
                                      .build(), RequestBody.empty());
 
         String destKey = makeNewKey();
@@ -178,7 +171,7 @@ public class ObjectTaggingIntegrationTest extends S3IntegrationTestBase {
                                        .copySource(BUCKET + "/" + key)
                                        .bucket(BUCKET)
                                        .key(destKey)
-                                       .tagging(tagSet2.toString())
+                                       .tagging(tagsCopy)
                                        .build());
 
         List<Tag> getTaggingResult = s3.getObjectTagging(GetObjectTaggingRequest.builder()
@@ -203,7 +196,7 @@ public class ObjectTaggingIntegrationTest extends S3IntegrationTestBase {
         s3.putObject(PutObjectRequest.builder()
                                      .bucket(BUCKET)
                                      .key(key)
-                                     .tagging(S3TaggingUtil.toQueryString(tags))
+                                     .tagging(tags)
                                      .build(), RequestBody.empty());
 
         s3.deleteObjectTagging(DeleteObjectTaggingRequest.builder().bucket(BUCKET).key(key).build());

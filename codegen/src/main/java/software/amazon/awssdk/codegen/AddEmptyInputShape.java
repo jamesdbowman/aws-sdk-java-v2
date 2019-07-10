@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,13 +15,12 @@
 
 package software.amazon.awssdk.codegen;
 
-import static software.amazon.awssdk.codegen.internal.Constants.REQUEST_CLASS_SUFFIX;
+import static software.amazon.awssdk.codegen.internal.Constant.REQUEST_CLASS_SUFFIX;
 import static software.amazon.awssdk.codegen.internal.Utils.createInputShapeMarshaller;
-import static software.amazon.awssdk.codegen.internal.Utils.unCapitialize;
+import static software.amazon.awssdk.codegen.internal.Utils.unCapitalize;
 
 import java.util.HashMap;
 import java.util.Map;
-import software.amazon.awssdk.codegen.model.config.customization.CustomizationConfig;
 import software.amazon.awssdk.codegen.model.intermediate.OperationModel;
 import software.amazon.awssdk.codegen.model.intermediate.ShapeModel;
 import software.amazon.awssdk.codegen.model.intermediate.ShapeType;
@@ -39,29 +38,23 @@ final class AddEmptyInputShape implements IntermediateModelShapeProcessor {
 
     private final ServiceModel serviceModel;
     private final NamingStrategy namingStrategy;
-    private final CustomizationConfig customizationConfig;
 
     AddEmptyInputShape(IntermediateModelBuilder builder) {
         this.serviceModel = builder.getService();
         this.namingStrategy = builder.getNamingStrategy();
-        this.customizationConfig = builder.getCustomConfig();
     }
 
     @Override
     public Map<String, ShapeModel> process(Map<String, OperationModel> currentOperations,
                                            Map<String, ShapeModel> currentShapes) {
-        if (customizationConfig.useModeledOutputShapeNames()) {
-            return currentShapes;
-        } else {
-            return addEmptyInputShapes(currentOperations);
-        }
+        return addEmptyInputShapes(currentOperations);
     }
 
     private Map<String, ShapeModel> addEmptyInputShapes(
             Map<String, OperationModel> javaOperationMap) {
-        final Map<String, Operation> operations = serviceModel.getOperations();
+        Map<String, Operation> operations = serviceModel.getOperations();
 
-        final Map<String, ShapeModel> emptyInputShapes = new HashMap<String, ShapeModel>();
+        Map<String, ShapeModel> emptyInputShapes = new HashMap<String, ShapeModel>();
 
         for (Map.Entry<String, Operation> entry : operations.entrySet()) {
             String operationName = entry.getKey();
@@ -69,16 +62,16 @@ final class AddEmptyInputShape implements IntermediateModelShapeProcessor {
 
             Input input = operation.getInput();
             if (input == null) {
-                final String inputShape = operationName + REQUEST_CLASS_SUFFIX;
-                final OperationModel operationModel = javaOperationMap.get(operationName);
+                String inputShape = operationName + REQUEST_CLASS_SUFFIX;
+                OperationModel operationModel = javaOperationMap.get(operationName);
 
-                operationModel.setInput(new VariableModel(unCapitialize(inputShape), inputShape));
+                operationModel.setInput(new VariableModel(unCapitalize(inputShape), inputShape));
 
                 ShapeModel shape = new ShapeModel(inputShape)
                         .withType(ShapeType.Request.getValue());
                 shape.setShapeName(inputShape);
 
-                final VariableModel inputVariable = new VariableModel(
+                VariableModel inputVariable = new VariableModel(
                         namingStrategy.getVariableName(inputShape), inputShape);
                 shape.setVariable(inputVariable);
 

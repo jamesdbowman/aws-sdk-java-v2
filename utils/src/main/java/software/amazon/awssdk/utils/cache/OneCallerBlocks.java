@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package software.amazon.awssdk.utils.cache;
 
 import java.util.concurrent.atomic.AtomicBoolean;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
 
 /**
  * A {@link CachedSupplier.PrefetchStrategy} that will have one caller at a time block to update the value.
@@ -23,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Multiple calls to {@link #prefetch(Runnable)} will result in only one caller actually performing the update, with the others
  * immediately returning.
  */
+@SdkProtectedApi
 public class OneCallerBlocks implements CachedSupplier.PrefetchStrategy {
     /**
      * Whether we are currently refreshing the supplier. This is used to make sure only one caller is blocking at a time.

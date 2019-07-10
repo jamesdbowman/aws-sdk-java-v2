@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,23 +16,23 @@
 package software.amazon.awssdk.services.sts.auth;
 
 import java.util.Date;
-import software.amazon.awssdk.annotation.SdkInternalApi;
-import software.amazon.awssdk.annotation.ThreadSafe;
-import software.amazon.awssdk.auth.AwsSessionCredentials;
+import software.amazon.awssdk.annotations.SdkInternalApi;
+import software.amazon.awssdk.annotations.ThreadSafe;
+import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
 import software.amazon.awssdk.services.sts.model.Credentials;
 
 /**
  * Holder class used to atomically store a session with its expiration time.
  */
-@ThreadSafe
 @SdkInternalApi
+@ThreadSafe
 final class SessionCredentialsHolder {
 
     private final AwsSessionCredentials sessionCredentials;
     private final Date sessionCredentialsExpiration;
 
     SessionCredentialsHolder(Credentials credentials) {
-        this.sessionCredentials = new AwsSessionCredentials(credentials.accessKeyId(),
+        this.sessionCredentials = AwsSessionCredentials.create(credentials.accessKeyId(),
                                                             credentials.secretAccessKey(),
                                                             credentials.sessionToken());
         this.sessionCredentialsExpiration = Date.from(credentials.expiration());

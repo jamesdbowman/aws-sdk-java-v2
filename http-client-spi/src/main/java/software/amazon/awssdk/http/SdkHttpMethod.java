@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,10 +17,12 @@ package software.amazon.awssdk.http;
 
 import java.util.Locale;
 import java.util.stream.Stream;
+import software.amazon.awssdk.annotations.SdkProtectedApi;
 
 /**
  * Enum for available HTTP methods.
  */
+@SdkProtectedApi
 public enum SdkHttpMethod {
 
     GET,
@@ -40,7 +42,7 @@ public enum SdkHttpMethod {
         if (value == null || value.isEmpty()) {
             return null;
         }
-        final String upperCaseValue = value.toUpperCase(Locale.ENGLISH);
+        String upperCaseValue = value.toUpperCase(Locale.ENGLISH);
         return Stream.of(values())
                 .filter(h -> h.name().equals(upperCaseValue))
                 .findFirst()

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -17,16 +17,17 @@ package software.amazon.awssdk.services.devicefarm;
 
 import static org.junit.Assert.assertNotNull;
 
+import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import software.amazon.awssdk.AmazonServiceException;
-import software.amazon.awssdk.auth.StaticCredentialsProvider;
+import software.amazon.awssdk.core.exception.SdkServiceException;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.devicefarm.model.CreateProjectRequest;
 import software.amazon.awssdk.services.devicefarm.model.CreateProjectResponse;
+import software.amazon.awssdk.services.devicefarm.model.DeleteProjectRequest;
 import software.amazon.awssdk.services.devicefarm.model.ListDevicePoolsRequest;
 import software.amazon.awssdk.services.devicefarm.model.Project;
-import software.amazon.awssdk.test.AwsTestBase;
+import software.amazon.awssdk.testutils.service.AwsTestBase;
 
 /**
  * Smoke tests for device farm service.
@@ -37,13 +38,20 @@ public class DeviceFarmIntegrationTest extends AwsTestBase {
                                                + System.currentTimeMillis();
     private static DeviceFarmClient client;
 
+    private static String projectArn;
+
     @BeforeClass
     public static void setup() throws Exception {
         setUpCredentials();
         client = DeviceFarmClient.builder()
-                                 .credentialsProvider(new StaticCredentialsProvider(credentials))
+                                 .credentialsProvider(CREDENTIALS_PROVIDER_CHAIN)
                                  .region(Region.US_WEST_2)
                                  .build();
+    }
+
+    @AfterClass
+    public static void teardown() {
+        client.deleteProject(DeleteProjectRequest.builder().arn(projectArn).build());
     }
 
     @Test
@@ -54,10 +62,11 @@ public class DeviceFarmIntegrationTest extends AwsTestBase {
                         .build());
         final Project project = result.project();
         assertNotNull(project);
-        assertNotNull(project.arn());
+        projectArn = project.arn();
+        assertNotNull(projectArn);
     }
 
-    @Test(expected = AmazonServiceException.class)
+    @Test(expected = SdkServiceException.class)
     public void testExceptionHandling() {
         client.listDevicePools(ListDevicePoolsRequest.builder().nextToken("fake-token").build());
     }

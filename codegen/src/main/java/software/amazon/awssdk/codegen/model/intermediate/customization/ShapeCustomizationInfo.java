@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,12 +15,16 @@
 
 package software.amazon.awssdk.codegen.model.intermediate.customization;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 public class ShapeCustomizationInfo {
 
     private ArtificialResultWrapper artificialResultWrapper;
     private boolean skipGeneratingModelClass;
     private boolean skipGeneratingMarshaller;
     private boolean skipGeneratingUnmarshaller;
+    private int staxTargetDepthOffset;
+    private boolean hasStaxTargetDepthOffset = false;
 
     public ArtificialResultWrapper getArtificialResultWrapper() {
         return artificialResultWrapper;
@@ -55,4 +59,17 @@ public class ShapeCustomizationInfo {
         this.skipGeneratingUnmarshaller = skipGeneratingUnmarshaller;
     }
 
+    public Integer getStaxTargetDepthOffset() {
+        return staxTargetDepthOffset;
+    }
+
+    public void setStaxTargetDepthOffset(int staxTargetDepthOffset) {
+        hasStaxTargetDepthOffset = true;
+        this.staxTargetDepthOffset = staxTargetDepthOffset;
+    }
+
+    @JsonIgnore
+    public boolean hasStaxTargetDepthOffset() {
+        return hasStaxTargetDepthOffset;
+    }
 }

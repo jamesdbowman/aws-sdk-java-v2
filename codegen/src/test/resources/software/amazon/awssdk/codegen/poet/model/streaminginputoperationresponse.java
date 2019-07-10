@@ -1,15 +1,23 @@
 package software.amazon.awssdk.services.jsonprotocoltests.model;
 
-import javax.annotation.Generated;
-import software.amazon.awssdk.AmazonWebServiceResult;
-import software.amazon.awssdk.ResponseMetadata;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import software.amazon.awssdk.annotations.Generated;
+import software.amazon.awssdk.core.SdkField;
+import software.amazon.awssdk.core.SdkPojo;
+import software.amazon.awssdk.utils.ToString;
 import software.amazon.awssdk.utils.builder.CopyableBuilder;
 import software.amazon.awssdk.utils.builder.ToCopyableBuilder;
 
 @Generated("software.amazon.awssdk:codegen")
-public class StreamingInputOperationResponse extends AmazonWebServiceResult<ResponseMetadata> implements
-                                                                                              ToCopyableBuilder<StreamingInputOperationResponse.Builder, StreamingInputOperationResponse> {
+public final class StreamingInputOperationResponse extends JsonProtocolTestsResponse implements
+                                                                                     ToCopyableBuilder<StreamingInputOperationResponse.Builder, StreamingInputOperationResponse> {
+    private static final List<SdkField<?>> SDK_FIELDS = Collections.unmodifiableList(Arrays.asList());
+
     private StreamingInputOperationResponse(BuilderImpl builder) {
+        super(builder);
     }
 
     @Override
@@ -45,27 +53,45 @@ public class StreamingInputOperationResponse extends AmazonWebServiceResult<Resp
         return true;
     }
 
+    /**
+     * Returns a string representation of this object. This is useful for testing and debugging. Sensitive data will be
+     * redacted from this string using a placeholder value.
+     */
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{");
-        sb.append("}");
-        return sb.toString();
+        return ToString.builder("StreamingInputOperationResponse").build();
     }
 
-    public interface Builder extends CopyableBuilder<Builder, StreamingInputOperationResponse> {
+    public <T> Optional<T> getValueForField(String fieldName, Class<T> clazz) {
+        return Optional.empty();
     }
 
-    private static final class BuilderImpl implements Builder {
+    @Override
+    public List<SdkField<?>> sdkFields() {
+        return SDK_FIELDS;
+    }
+
+    public interface Builder extends JsonProtocolTestsResponse.Builder, SdkPojo,
+                                     CopyableBuilder<Builder, StreamingInputOperationResponse> {
+    }
+
+    static final class BuilderImpl extends JsonProtocolTestsResponse.BuilderImpl implements Builder {
         private BuilderImpl() {
         }
 
         private BuilderImpl(StreamingInputOperationResponse model) {
+            super(model);
         }
 
         @Override
         public StreamingInputOperationResponse build() {
             return new StreamingInputOperationResponse(this);
         }
+
+        @Override
+        public List<SdkField<?>> sdkFields() {
+            return SDK_FIELDS;
+        }
     }
 }
+

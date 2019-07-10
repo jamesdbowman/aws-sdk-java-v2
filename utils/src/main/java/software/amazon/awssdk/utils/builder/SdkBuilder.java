@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,16 +15,17 @@
 
 package software.amazon.awssdk.utils.builder;
 
-import java.util.function.UnaryOperator;
-import software.amazon.awssdk.annotation.ReviewBeforeRelease;
+import java.util.function.Consumer;
+import software.amazon.awssdk.annotations.SdkPublicApi;
 
 /**
  * A mutable object that can be used to create an immutable object of type T.
  *
- * @param <T> the type that the builder will build
  * @param <B> the builder type (this)
+ * @param <T> the type that the builder will build
  */
-public interface SdkBuilder<B extends SdkBuilder<B, T>, T> {
+@SdkPublicApi
+public interface SdkBuilder<B extends SdkBuilder<B, T>, T> extends Buildable {
 
     /**
      * An immutable object that is created from the
@@ -32,6 +33,7 @@ public interface SdkBuilder<B extends SdkBuilder<B, T>, T> {
      *
      * @return an instance of T
      */
+    @Override
     T build();
 
     /**
@@ -44,20 +46,19 @@ public interface SdkBuilder<B extends SdkBuilder<B, T>, T> {
      * builder = Util.addSomeDetailToTheBuilder(builder);
      * ClassBeingBuilt clz = builder.build();
      * </code></pre>
-     * <p/>
+     * <p>
      * This can be done in a statement:
      *
      * <pre><code>
-     * ClassBeingBuilt = ClassBeingBuilt.builder().apply(Util::addSomeDetailToTheBuilder).build();
+     * ClassBeingBuilt = ClassBeingBuilt.builder().applyMutation(Util::addSomeDetailToTheBuilder).build();
      * </code></pre>
      *
-     * @param function the function that mutates and then returns the builder
+     * @param mutator the function that mutates the builder
      * @return B the mutated builder instance
      */
     @SuppressWarnings("unchecked")
-    @ReviewBeforeRelease("Why does the user have to return a builder if they're just modifying it? "
-                         + "That makes this harder to use.")
-    default B apply(UnaryOperator<B> function) {
-        return function.apply((B) this);
+    default B applyMutation(Consumer<B> mutator) {
+        mutator.accept((B) this);
+        return (B) this;
     }
 }

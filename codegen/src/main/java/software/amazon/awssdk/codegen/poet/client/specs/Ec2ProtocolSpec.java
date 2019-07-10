@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,28 +15,23 @@
 
 package software.amazon.awssdk.codegen.poet.client.specs;
 
-import com.squareup.javapoet.MethodSpec;
-import java.util.ArrayList;
-import java.util.List;
+import software.amazon.awssdk.codegen.model.intermediate.IntermediateModel;
 import software.amazon.awssdk.codegen.poet.PoetExtensions;
+import software.amazon.awssdk.protocols.query.AwsEc2ProtocolFactory;
 
-public class Ec2ProtocolSpec extends QueryXmlProtocolSpec {
+public class Ec2ProtocolSpec extends QueryProtocolSpec {
 
-    public Ec2ProtocolSpec(PoetExtensions poetExtensions) {
-        super(poetExtensions);
+    public Ec2ProtocolSpec(IntermediateModel model, PoetExtensions poetExtensions) {
+        super(model, poetExtensions);
     }
 
     @Override
-    public List<MethodSpec> additionalMethods() {
-        List<MethodSpec> additionalMethods = new ArrayList<>();
-
-        // TODO: Implement support for dry run requests.
-        // additionalMethods.add(dryRunMethod());
-
-        return additionalMethods;
+    protected Class<?> protocolFactoryClass() {
+        return AwsEc2ProtocolFactory.class;
     }
 
     /*
+    TODO Dry run support
     private MethodSpec dryRunMethod() {
         TypeVariableName typeVariableName = TypeVariableName.get("X", AmazonWebServiceRequest.class);
         ClassName dryRunResult = poetExtensions.getModelClass("DryRunResult");
@@ -57,7 +52,7 @@ public class Ec2ProtocolSpec extends QueryXmlProtocolSpec {
                         StaxResponseHandler.class,
                         dryRunResult,
                         VoidStaxUnmarshaller.class)
-                .addStatement("\nclientHandler.execute(new $T<$T, $T>().withMarshaller($L).withResponseHandler($N)" +
+                .addStatement("\nclientHandler.execute(new $T<$T, $T>().marshaller($L).withResponseHandler($N)" +
                                 ".withInput($L))",
                         ClientExecutionParams.class,
                         Request.class,
@@ -65,19 +60,19 @@ public class Ec2ProtocolSpec extends QueryXmlProtocolSpec {
                         "null",
                         "responseHandler",
                         "dryRunRequest")
-                .addStatement("throw new $T($S)", AmazonClientException.class,
+                .addStatement("throw new $T($S)", SdkClientException.class,
                         "Unrecognized service response for the dry-run request.")
                 .endControlFlow()
-                .beginControlFlow("catch (AmazonServiceException ase)")
-                .beginControlFlow("if (ase.getErrorCode().equals($S) && ase.getStatusCode() == 412)",
+                .beginControlFlow("catch (AwsServiceException exception)")
+                .beginControlFlow("if (exception.errorCode().equals($S) && exception.statusCode() == 412)",
                         "DryRunOperation")
-                .addStatement("return new $T(true, request, ase.getMessage(), ase)", dryRunResultGeneric)
+                .addStatement("return new $T(true, request, exception.getMessage(), exception)", dryRunResultGeneric)
                 .endControlFlow()
-                .beginControlFlow("else if (ase.getErrorCode().equals($S) && ase.getStatusCode() == 403)",
+                .beginControlFlow("else if (exception.errorCode().equals($S) && exception.statusCode() == 403)",
                         "UnauthorizedOperation")
-                .addStatement("return new $T(false, request, ase.getMessage(), ase)", dryRunResultGeneric)
+                .addStatement("return new $T(false, request, exception.getMessage(), exception)", dryRunResultGeneric)
                 .endControlFlow()
-                .addStatement("throw new $T($S, ase)", AmazonClientException.class,
+                .addStatement("throw new $T($S, exception)", SdkClientException.class,
                         "Unrecognized service response for the dry-run request.")
                 .endControlFlow()
                 .build();

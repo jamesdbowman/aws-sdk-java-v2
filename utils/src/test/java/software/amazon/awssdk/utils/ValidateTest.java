@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,14 +16,9 @@
 package software.amazon.awssdk.utils;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Modifier;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -344,18 +339,6 @@ public class ValidateTest  {
         assertSame(coll, test);
     }
 
-    //-----------------------------------------------------------------------
-    //-----------------------------------------------------------------------
-    @Test
-    public void testConstructor() {
-        assertNotNull(new Validate());
-        final Constructor<?>[] cons = Validate.class.getDeclaredConstructors();
-        assertEquals(1, cons.length);
-        assertTrue(Modifier.isPublic(cons[0].getModifiers()));
-        assertTrue(Modifier.isPublic(Validate.class.getModifiers()));
-        assertFalse(Modifier.isFinal(Validate.class.getModifiers()));
-    }
-
     @Test
     public void testInclusiveBetween_withMessage()
     {
@@ -508,6 +491,36 @@ public class ValidateTest  {
     @Test
     public void paramNotNull_NonNullParam_ReturnsObject() {
         assertEquals("foo", Validate.paramNotNull("foo", "someField"));
+    }
+
+    @Test
+    public void getOrDefault_ParamNotNull_ReturnsParam() {
+        assertEquals("foo", Validate.getOrDefault("foo", () -> "bar"));
+    }
+
+    @Test
+    public void getOrDefault_ParamNull_ReturnsDefaultValue() {
+        assertEquals("bar", Validate.getOrDefault(null, () -> "bar"));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void getOrDefault_DefaultValueNull_ThrowsException() {
+        Validate.getOrDefault("bar", null);
+    }
+
+    @Test
+    public void mutuallyExclusive_AllNull_DoesNotThrow() {
+        Validate.mutuallyExclusive("error", null, null, null);
+    }
+
+    @Test
+    public void mutuallyExclusive_OnlyOneProvided_DoesNotThrow() {
+        Validate.mutuallyExclusive("error", null, "foo", null);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void mutuallyExclusive_MultipleProvided_DoesNotThrow() {
+        Validate.mutuallyExclusive("error", null, "foo", "bar");
     }
 
 }

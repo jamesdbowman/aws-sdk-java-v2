@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@ import static software.amazon.awssdk.utils.Validate.paramNotNull;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import java.lang.reflect.Method;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,9 +28,12 @@ import java.util.Map;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.StreamSupport;
+import software.amazon.awssdk.codegen.internal.Utils;
 import software.amazon.awssdk.codegen.model.intermediate.IntermediateModel;
 import software.amazon.awssdk.codegen.model.intermediate.MemberModel;
 import software.amazon.awssdk.codegen.model.intermediate.ShapeModel;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.utils.StringUtils;
 
 /**
  * Transforms a JSON representation (using C2J member names) of a modeled POJO into that POJO.
@@ -112,7 +114,7 @@ public class ShapeModelReflector {
                 throw new IllegalArgumentException("Member " + memberName + " was not found in the " +
                                                    structureShape.getC2jName() + " shape.");
             }
-            final Object toSet = getMemberValue(input.get(memberName), memberModel);
+            Object toSet = getMemberValue(input.get(memberName), memberModel);
             if (toSet != null) {
                 Method setter = getMemberSetter(shapeObject.getClass(), memberModel);
                 setter.setAccessible(true);
@@ -134,17 +136,28 @@ public class ShapeModelReflector {
      */
     private Method getMemberSetter(Class<?> containingClass, MemberModel currentMember) throws
                                                                                         Exception {
-        return containingClass.getMethod("set" + currentMember.getName(),
+        return containingClass.getMethod(getMethodName(currentMember),
                                          Class.forName(getFullyQualifiedType(currentMember)));
+    }
+
+    private String getMethodName(MemberModel memberModel) {
+        String methodName = StringUtils.uncapitalize(memberModel.getName());
+
+        if (Utils.isListWithEnumShape(memberModel) || Utils.isMapWithEnumShape(memberModel)) {
+            methodName += "WithStrings";
+        }
+        return methodName;
     }
 
     private String getFullyQualifiedType(MemberModel memberModel) {
         if (memberModel.isSimple()) {
             switch (memberModel.getVariable().getSimpleType()) {
                 case "Instant":
-                case "ByteBuffer":
+                case "SdkBytes":
                 case "InputStream":
                     return memberModel.getSetterModel().getVariableSetterType();
+                case "BigDecimal":
+                    return "java.math.BigDecimal";
                 default:
                     return "java.lang." + memberModel.getSetterModel().getVariableSetterType();
             }
@@ -218,12 +231,14 @@ public class ShapeModelReflector {
                 return currentNode.asDouble();
             case "Instant":
                 return Instant.ofEpochMilli(currentNode.asLong());
-            case "ByteBuffer":
-                return ByteBuffer.wrap(currentNode.asText().getBytes(StandardCharsets.UTF_8));
+            case "SdkBytes":
+                return SdkBytes.fromUtf8String(currentNode.asText());
             case "Float":
                 return (float) currentNode.asDouble();
             case "Character":
                 return asCharacter(currentNode);
+            case "BigDecimal":
+                return new BigDecimal(currentNode.asText());
             default:
                 throw new IllegalArgumentException(
                         "Unsupported fieldType " + memberModel.getVariable().getSimpleType());

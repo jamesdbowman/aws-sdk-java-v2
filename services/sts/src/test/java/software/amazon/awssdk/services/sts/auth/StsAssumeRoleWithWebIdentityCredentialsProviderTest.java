@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 
 package software.amazon.awssdk.services.sts.auth;
 
-import software.amazon.awssdk.services.sts.STSClient;
+import software.amazon.awssdk.services.sts.StsClient;
 import software.amazon.awssdk.services.sts.auth.StsAssumeRoleWithWebIdentityCredentialsProvider.Builder;
 import software.amazon.awssdk.services.sts.model.AssumeRoleWithWebIdentityRequest;
 import software.amazon.awssdk.services.sts.model.AssumeRoleWithWebIdentityResponse;
@@ -43,7 +43,7 @@ public class StsAssumeRoleWithWebIdentityCredentialsProviderTest
     }
 
     @Override
-    protected AssumeRoleWithWebIdentityResponse callClient(STSClient client, AssumeRoleWithWebIdentityRequest request) {
+    protected AssumeRoleWithWebIdentityResponse callClient(StsClient client, AssumeRoleWithWebIdentityRequest request) {
         return client.assumeRoleWithWebIdentity(request);
     }
 }

@@ -1,21 +1,40 @@
 package software.amazon.awssdk.services.jsonprotocoltests.model;
 
+import java.io.Serializable;
 import java.nio.ByteBuffer;
-import javax.annotation.Generated;
-import software.amazon.awssdk.annotation.SdkInternalApi;
-import software.amazon.awssdk.protocol.ProtocolMarshaller;
-import software.amazon.awssdk.protocol.StructuredPojo;
-import software.amazon.awssdk.runtime.StandardMemberCopier;
-import software.amazon.awssdk.services.jsonprotocoltests.transform.StructWithNestedBlobTypeMarshaller;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import software.amazon.awssdk.annotations.Generated;
+import software.amazon.awssdk.core.SdkBytes;
+import software.amazon.awssdk.core.SdkField;
+import software.amazon.awssdk.core.SdkPojo;
+import software.amazon.awssdk.core.adapter.StandardMemberCopier;
+import software.amazon.awssdk.core.protocol.MarshallLocation;
+import software.amazon.awssdk.core.protocol.MarshallingType;
+import software.amazon.awssdk.core.traits.LocationTrait;
+import software.amazon.awssdk.utils.ToString;
 import software.amazon.awssdk.utils.builder.CopyableBuilder;
 import software.amazon.awssdk.utils.builder.ToCopyableBuilder;
 
 /**
  */
 @Generated("software.amazon.awssdk:codegen")
-public class StructWithNestedBlobType implements StructuredPojo,
-                                                 ToCopyableBuilder<StructWithNestedBlobType.Builder, StructWithNestedBlobType> {
-    private final ByteBuffer nestedBlob;
+public final class StructWithNestedBlobType implements SdkPojo, Serializable,
+                                                       ToCopyableBuilder<StructWithNestedBlobType.Builder, StructWithNestedBlobType> {
+    private static final SdkField<SdkBytes> NESTED_BLOB_FIELD = SdkField.<SdkBytes> builder(MarshallingType.SDK_BYTES)
+        .getter(getter(StructWithNestedBlobType::nestedBlob)).setter(setter(Builder::nestedBlob))
+        .traits(LocationTrait.builder().location(MarshallLocation.PAYLOAD).locationName("NestedBlob").build()).build();
+
+    private static final List<SdkField<?>> SDK_FIELDS = Collections.unmodifiableList(Arrays.asList(NESTED_BLOB_FIELD));
+
+    private static final long serialVersionUID = 1L;
+
+    private final SdkBytes nestedBlob;
 
     private StructWithNestedBlobType(BuilderImpl builder) {
         this.nestedBlob = builder.nestedBlob;
@@ -23,14 +42,11 @@ public class StructWithNestedBlobType implements StructuredPojo,
 
     /**
      * Returns the value of the NestedBlob property for this object.
-     * <p>
-     * This method will return a new read-only {@code ByteBuffer} each time it is invoked.
-     * </p>
      *
      * @return The value of the NestedBlob property for this object.
      */
-    public ByteBuffer nestedBlob() {
-        return nestedBlob == null ? null : nestedBlob.asReadOnlyBuffer();
+    public SdkBytes nestedBlob() {
+        return nestedBlob;
     }
 
     @Override
@@ -49,7 +65,7 @@ public class StructWithNestedBlobType implements StructuredPojo,
     @Override
     public int hashCode() {
         int hashCode = 1;
-        hashCode = 31 * hashCode + ((nestedBlob() == null) ? 0 : nestedBlob().hashCode());
+        hashCode = 31 * hashCode + Objects.hashCode(nestedBlob());
         return hashCode;
     }
 
@@ -65,74 +81,84 @@ public class StructWithNestedBlobType implements StructuredPojo,
             return false;
         }
         StructWithNestedBlobType other = (StructWithNestedBlobType) obj;
-        if (other.nestedBlob() == null ^ this.nestedBlob() == null) {
-            return false;
-        }
-        if (other.nestedBlob() != null && !other.nestedBlob().equals(this.nestedBlob())) {
-            return false;
-        }
-        return true;
+        return Objects.equals(nestedBlob(), other.nestedBlob());
     }
 
+    /**
+     * Returns a string representation of this object. This is useful for testing and debugging. Sensitive data will be
+     * redacted from this string using a placeholder value.
+     */
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{");
-        if (nestedBlob() != null) {
-            sb.append("NestedBlob: ").append(nestedBlob()).append(",");
+        return ToString.builder("StructWithNestedBlobType").add("NestedBlob", nestedBlob()).build();
+    }
+
+    public <T> Optional<T> getValueForField(String fieldName, Class<T> clazz) {
+        switch (fieldName) {
+            case "NestedBlob":
+                return Optional.ofNullable(clazz.cast(nestedBlob()));
+            default:
+                return Optional.empty();
         }
-        sb.append("}");
-        return sb.toString();
     }
 
-    @SdkInternalApi
     @Override
-    public void marshall(ProtocolMarshaller protocolMarshaller) {
-        StructWithNestedBlobTypeMarshaller.getInstance().marshall(this, protocolMarshaller);
+    public List<SdkField<?>> sdkFields() {
+        return SDK_FIELDS;
     }
 
-    public interface Builder extends CopyableBuilder<Builder, StructWithNestedBlobType> {
+    private static <T> Function<Object, T> getter(Function<StructWithNestedBlobType, T> g) {
+        return obj -> g.apply((StructWithNestedBlobType) obj);
+    }
+
+    private static <T> BiConsumer<Object, T> setter(BiConsumer<Builder, T> s) {
+        return (obj, val) -> s.accept((Builder) obj, val);
+    }
+
+    public interface Builder extends SdkPojo, CopyableBuilder<Builder, StructWithNestedBlobType> {
         /**
          * Sets the value of the NestedBlob property for this object.
-         * <p>
-         * To preserve immutability, the remaining bytes in the provided buffer will be copied into a new buffer when
-         * set.
-         * </p>
          *
          * @param nestedBlob
          *        The new value for the NestedBlob property for this object.
          * @return Returns a reference to this object so that method calls can be chained together.
          */
-        Builder nestedBlob(ByteBuffer nestedBlob);
+        Builder nestedBlob(SdkBytes nestedBlob);
     }
 
-    private static final class BuilderImpl implements Builder {
-        private ByteBuffer nestedBlob;
+    static final class BuilderImpl implements Builder {
+        private SdkBytes nestedBlob;
 
         private BuilderImpl() {
         }
 
         private BuilderImpl(StructWithNestedBlobType model) {
-            setNestedBlob(model.nestedBlob);
+            nestedBlob(model.nestedBlob);
         }
 
         public final ByteBuffer getNestedBlob() {
-            return nestedBlob;
+            return nestedBlob == null ? null : nestedBlob.asByteBuffer();
         }
 
         @Override
-        public final Builder nestedBlob(ByteBuffer nestedBlob) {
+        public final Builder nestedBlob(SdkBytes nestedBlob) {
             this.nestedBlob = StandardMemberCopier.copy(nestedBlob);
             return this;
         }
 
         public final void setNestedBlob(ByteBuffer nestedBlob) {
-            this.nestedBlob = StandardMemberCopier.copy(nestedBlob);
+            nestedBlob(nestedBlob == null ? null : SdkBytes.fromByteBuffer(nestedBlob));
         }
 
         @Override
         public StructWithNestedBlobType build() {
             return new StructWithNestedBlobType(this);
         }
+
+        @Override
+        public List<SdkField<?>> sdkFields() {
+            return SDK_FIELDS;
+        }
     }
 }
+

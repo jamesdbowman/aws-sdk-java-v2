@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -15,8 +15,9 @@
 
 package software.amazon.awssdk.codegen;
 
-import static software.amazon.awssdk.codegen.internal.Utils.unCapitialize;
+import static software.amazon.awssdk.codegen.internal.Utils.unCapitalize;
 
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import software.amazon.awssdk.codegen.model.intermediate.ExceptionModel;
@@ -30,6 +31,7 @@ import software.amazon.awssdk.codegen.model.service.Input;
 import software.amazon.awssdk.codegen.model.service.Member;
 import software.amazon.awssdk.codegen.model.service.Operation;
 import software.amazon.awssdk.codegen.model.service.Output;
+import software.amazon.awssdk.codegen.model.service.PaginatorDefinition;
 import software.amazon.awssdk.codegen.model.service.ServiceModel;
 import software.amazon.awssdk.codegen.model.service.Shape;
 import software.amazon.awssdk.codegen.naming.NamingStrategy;
@@ -41,10 +43,14 @@ final class AddOperations {
 
     private final ServiceModel serviceModel;
     private final NamingStrategy namingStrategy;
+    private final Map<String, PaginatorDefinition> paginators;
+    private final List<String> deprecatedShapes;
 
     AddOperations(IntermediateModelBuilder builder) {
         this.serviceModel = builder.getService();
         this.namingStrategy = builder.getNamingStrategy();
+        this.paginators = builder.getPaginators().getPaginators();
+        this.deprecatedShapes = builder.getCustomConfig().getDeprecatedShapes();
     }
 
     private static boolean isAuthenticated(Operation op) {
@@ -142,8 +148,8 @@ final class AddOperations {
 
         for (Map.Entry<String, Operation> entry : serviceModel.getOperations().entrySet()) {
 
-            final String operationName = entry.getKey();
-            final Operation op = entry.getValue();
+            String operationName = entry.getKey();
+            Operation op = entry.getValue();
 
             OperationModel operationModel = new OperationModel();
 
@@ -151,25 +157,30 @@ final class AddOperations {
             operationModel.setDeprecated(op.isDeprecated());
             operationModel.setDocumentation(op.getDocumentation());
             operationModel.setIsAuthenticated(isAuthenticated(op));
+            operationModel.setAuthType(op.getAuthType());
+            operationModel.setPaginated(isPaginated(op));
+            operationModel.setEndpointOperation(op.isEndpointOperation());
+            operationModel.setEndpointDiscovery(op.getEndpointDiscovery());
+            operationModel.setEndpointTrait(op.getEndpoint());
 
-            final Input input = op.getInput();
+            Input input = op.getInput();
             if (input != null) {
                 String originalShapeName = input.getShape();
                 String inputShape = namingStrategy.getRequestClassName(operationName);
                 String documentation = input.getDocumentation() != null ? input.getDocumentation() :
                                        c2jShapes.get(originalShapeName).getDocumentation();
 
-                operationModel.setInput(new VariableModel(unCapitialize(inputShape), inputShape)
+                operationModel.setInput(new VariableModel(unCapitalize(inputShape), inputShape)
                                                 .withDocumentation(documentation));
 
             }
 
-            final Output output = op.getOutput();
+            Output output = op.getOutput();
             if (output != null) {
-                final String outputShapeName = getResultShapeName(op, c2jShapes);
-                final Shape outputShape = c2jShapes.get(outputShapeName);
-                final String responseClassName = namingStrategy.getResponseClassName(operationName);
-                final String documentation = getOperationDocumentation(output, outputShape);
+                String outputShapeName = getResultShapeName(op, c2jShapes);
+                Shape outputShape = c2jShapes.get(outputShapeName);
+                String responseClassName = namingStrategy.getResponseClassName(operationName);
+                String documentation = getOperationDocumentation(output, outputShape);
 
                 operationModel.setReturnType(
                         new ReturnTypeModel(responseClassName).withDocumentation(documentation));
@@ -181,21 +192,20 @@ final class AddOperations {
             if (op.getErrors() != null) {
                 for (ErrorMap error : op.getErrors()) {
 
-                    final String documentation =
+                    String documentation =
                             error.getDocumentation() != null ? error.getDocumentation() :
                             c2jShapes.get(error.getShape()).getDocumentation();
 
-                    final Integer httpStatusCode = getHttpStatusCode(error, c2jShapes.get(error.getShape()));
+                    Integer httpStatusCode = getHttpStatusCode(error, c2jShapes.get(error.getShape()));
 
-                    operationModel.addException(
+                    if (!deprecatedShapes.contains(error.getShape())) {
+                        operationModel.addException(
                             new ExceptionModel(namingStrategy.getExceptionName(error.getShape()))
-                                    .withDocumentation(documentation)
-                                    .withHttpStatusCode(httpStatusCode));
+                                .withDocumentation(documentation)
+                                .withHttpStatusCode(httpStatusCode));
+                    }
                 }
             }
-
-            // TODO: find the stream input parameter
-            operationModel.setInputStreamPropertyName(null);
 
             javaOperationModels.put(operationName, operationModel);
         }
@@ -211,7 +221,7 @@ final class AddOperations {
      * @return HTTP status code or null if not present.
      */
     private Integer getHttpStatusCode(ErrorMap error, Shape shape) {
-        final Integer httpStatusCode = getHttpStatusCode(error.getErrorTrait());
+        Integer httpStatusCode = getHttpStatusCode(error.getErrorTrait());
         return httpStatusCode == null ? getHttpStatusCode(shape.getErrorTrait()) : httpStatusCode;
     }
 
@@ -221,5 +231,9 @@ final class AddOperations {
      */
     private Integer getHttpStatusCode(ErrorTrait errorTrait) {
         return errorTrait == null ? null : errorTrait.getHttpStatusCode();
+    }
+
+    private boolean isPaginated(Operation op) {
+        return paginators.keySet().contains(op.getName()) && paginators.get(op.getName()).isValid();
     }
 }

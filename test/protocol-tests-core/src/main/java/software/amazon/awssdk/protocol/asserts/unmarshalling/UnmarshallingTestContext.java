@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 package software.amazon.awssdk.protocol.asserts.unmarshalling;
 
 import software.amazon.awssdk.codegen.model.intermediate.IntermediateModel;
+import software.amazon.awssdk.core.sync.ResponseTransformer;
 
 /**
  * Unmarshalling assertions require some context about the service and operation being exercised.
@@ -24,7 +25,7 @@ public class UnmarshallingTestContext {
 
     private IntermediateModel model;
     private String operationName;
-    private String streamedResonse;
+    private String streamedResponse;
 
     public UnmarshallingTestContext withModel(IntermediateModel model) {
         this.model = model;
@@ -46,15 +47,15 @@ public class UnmarshallingTestContext {
 
     /**
      * Streamed response will only be present for operations that have a streaming member in the output. We
-     * capture the actual contents if via a custom {@link software.amazon.awssdk.sync.StreamingResponseHandler}.
+     * capture the actual contents if via a custom {@link ResponseTransformer}.
      */
-    public UnmarshallingTestContext withStreamedResponse(String streamedResonse) {
-        this.streamedResonse = streamedResonse;
+    public UnmarshallingTestContext withStreamedResponse(String streamedResponse) {
+        this.streamedResponse = streamedResponse;
         return this;
     }
 
     public String getStreamedResponse() {
-        return streamedResonse;
+        return streamedResponse;
     }
 
 }

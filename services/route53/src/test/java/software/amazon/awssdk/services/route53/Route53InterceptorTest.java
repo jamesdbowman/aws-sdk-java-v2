@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -18,13 +18,12 @@ package software.amazon.awssdk.services.route53;
 import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
-import software.amazon.awssdk.SdkRequest;
-import software.amazon.awssdk.SdkResponse;
-import software.amazon.awssdk.annotation.ReviewBeforeRelease;
-import software.amazon.awssdk.interceptor.ExecutionAttributes;
-import software.amazon.awssdk.interceptor.ExecutionInterceptor;
-import software.amazon.awssdk.interceptor.InterceptorContext;
+import software.amazon.awssdk.core.SdkResponse;
+import software.amazon.awssdk.core.interceptor.ExecutionAttributes;
+import software.amazon.awssdk.core.interceptor.ExecutionInterceptor;
+import software.amazon.awssdk.core.interceptor.InterceptorContext;
 import software.amazon.awssdk.services.route53.internal.Route53IdInterceptor;
+import software.amazon.awssdk.services.route53.model.CreateHostedZoneRequest;
 import software.amazon.awssdk.services.route53.model.CreateHostedZoneResponse;
 import software.amazon.awssdk.services.route53.model.CreateReusableDelegationSetResponse;
 import software.amazon.awssdk.services.route53.model.DelegationSet;
@@ -35,15 +34,14 @@ import software.amazon.awssdk.services.route53.model.ListReusableDelegationSetsR
 /**
  * Unit test for request handler customization of delegation set id's
  */
-@ReviewBeforeRelease("This test appears to be wrong, see comment on line 80")
+//TODO: fix test, see comment on line 80")
 public class Route53InterceptorTest {
 
     private static final String delegationPrefix = "delegationset";
 
     private static final String id = "delegationSetId";
 
-    private static final String delegationSetId = "/" + delegationPrefix + "/"
-            + id;
+    private static final String delegationSetId = "/" + delegationPrefix + "/" + id;
 
     /**
      * Tests if the request handler strips the delegation set prefixes. Asserts
@@ -110,7 +108,7 @@ public class Route53InterceptorTest {
 
     private SdkResponse modifyResponse(ExecutionInterceptor interceptor, SdkResponse responseObject) {
         return interceptor.modifyResponse(InterceptorContext.builder()
-                                                            .request(new SdkRequest() {})
+                                                            .request(CreateHostedZoneRequest.builder().build())
                                                             .response(responseObject)
                                                             .build(),
                                           new ExecutionAttributes());

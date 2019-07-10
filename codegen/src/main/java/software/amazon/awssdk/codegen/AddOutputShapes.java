@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2017 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * Copyright 2010-2019 Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License").
  * You may not use this file except in compliance with the License.
@@ -43,11 +43,11 @@ final class AddOutputShapes extends AddShapes implements IntermediateModelShapeP
 
     private Map<String, ShapeModel> constructOutputShapes() {
         // C2j model components
-        final Map<String, Operation> operations = getServiceModel().getOperations();
-        final Map<String, Shape> c2jShapes = getServiceModel().getShapes();
+        Map<String, Operation> operations = getServiceModel().getOperations();
+        Map<String, Shape> c2jShapes = getServiceModel().getShapes();
 
         // Java shape models, to be constructed
-        final Map<String, ShapeModel> javaShapes = new HashMap<String, ShapeModel>();
+        Map<String, ShapeModel> javaShapes = new HashMap<String, ShapeModel>();
 
         for (Map.Entry<String, Operation> entry : operations.entrySet()) {
 
@@ -79,8 +79,8 @@ final class AddOutputShapes extends AddShapes implements IntermediateModelShapeP
                                                       String javaOutputShapeNameOverride,
                                                       Map<String, Shape> c2jShapes) {
 
-        final Output c2jOutputModel = c2jOperationModel.getOutput();
-        final String c2jOutputShapeName = c2jOutputModel.getShape();
+        Output c2jOutputModel = c2jOperationModel.getOutput();
+        String c2jOutputShapeName = c2jOutputModel.getShape();
 
         ShapeModel shapeModel = generateShapeModel(javaOutputShapeNameOverride, c2jOutputShapeName);
 
